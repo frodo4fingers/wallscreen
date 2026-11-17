@@ -6,6 +6,9 @@ import QtTest
 import "../package/contents/ui"
 import "../package/contents/ui/styles/woodblock"
 import "../package/contents/ui/styles/woodblock/palette.js" as Palette
+import "../package/contents/ui/styles/lofi" as Lofi
+import "../package/contents/ui/styles/lofi/geometry.js" as LofiGeo
+import "../package/contents/ui/styles/lofi/palette.js" as LofiPal
 
 Item {
     id: scene
@@ -19,6 +22,7 @@ Item {
     Component { id: paperComp; Paper {} }
     Component { id: sceneComp; Scene {} }
     Component { id: weatherComp; Weather {} }
+    Component { id: lofiComp; Lofi.Scene {} }
 
     QtObject {
         id: stubWorld
@@ -128,6 +132,66 @@ Item {
         function test_scene_null_world() {
             var obj = createTemporaryObject(sceneComp, scene, { width: 1920, height: 1080 })
             verify(obj !== null, "Scene (null world) failed to create")
+        }
+
+        function test_lofi_scene() {
+            var obj = createTemporaryObject(lofiComp, scene, {
+                width: 1920, height: 1080,
+                world: stubWorld
+            })
+            verify(obj !== null, "Lofi scene failed to create")
+            resizeAll(obj)
+        }
+
+        function test_lofi_scene_null_world() {
+            var obj = createTemporaryObject(lofiComp, scene, { width: 1920, height: 1080 })
+            verify(obj !== null, "Lofi scene (null world) failed to create")
+        }
+
+        // One pane per ~0.9 window height; the cat sits inside the window on every screen.
+        function test_lofi_layout() {
+            var cases = [[3440, 1440, 3], [1920, 1080, 2], [1080, 1920, 1], [5120, 1440, 3]]
+            for (var i = 0; i < cases.length; i++) {
+                var L = LofiGeo.layout(cases[i][0], cases[i][1])
+                compare(L.n, cases[i][2], "panes for " + cases[i][0] + "x" + cases[i][1])
+                compare(L.panes.length, 2 * L.n)
+                var cat = LofiGeo.cat(L)
+                verify(cat.cx > L.win.x && cat.cx < L.win.x + L.win.w, "cat inside the window")
+            }
+        }
+
+        // Every draw op names a palette key and holds a finite path, on every screen shape.
+        function test_lofi_draw_lists() {
+            var c = LofiPal.room(0.3, 0.2)
+            var sizes = [[3440, 1440], [1920, 1080], [1080, 1920], [5120, 1440], [1600, 1200]]
+            for (var i = 0; i < sizes.length; i++) {
+                var L = LofiGeo.layout(sizes[i][0], sizes[i][1]), d = LofiGeo.desk(L)
+                var lists = [LofiGeo.plant(L).ops, LofiGeo.stack(L), LofiGeo.curtains(L), LofiGeo.garland(L).ops,
+                             LofiGeo.shelves(L), LofiGeo.clock(L).ops, LofiGeo.photos(L).ops, LofiGeo.radiator(L),
+                             LofiGeo.hanger(L).ops, d.surface, d.items]
+                for (var j = 0; j < lists.length; j++) {
+                    for (var k = 0; k < lists[j].length; k++) {
+                        var o = lists[j][k]
+                        verify(c[o.c] !== undefined, "palette key " + o.c)
+                        verify(!/NaN|undefined/.test(o.d), "finite path for " + o.c + " at " + sizes[i])
+                    }
+                }
+            }
+        }
+
+        function test_lofi_palette() {
+            var hex = /^#[0-9a-f]{6}$/
+            var es = [-1, -0.1, 0, 0.1, 1]
+            for (var i = 0; i < es.length; i++) {
+                var s = LofiPal.sky(es[i], 0.6), r = LofiPal.room(es[i], 0.6)
+                for (var k in s) verify(hex.test(s[k]), "sky." + k + " " + s[k])
+                for (var j in r) verify(hex.test(r[j]), "room." + j + " " + r[j])
+            }
+            compare(LofiPal.lights(-1, 0), 1)
+            compare(LofiPal.lights(1, 0), 0)
+            compare(LofiGeo.season(0), 3)   // January: winter
+            compare(LofiGeo.season(3), 0)   // April: spring
+            compare(LofiGeo.season(9), 2)   // October: autumn
         }
 
         // Weather only checked for creation. valid stays false until the network

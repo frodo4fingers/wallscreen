@@ -180,3 +180,79 @@ The style computes all its own colours from these values. It must handle `world`
 ## Config
 - New entry `Style` (String, default "woodblock").
 - An unknown id falls back to "woodblock" (in main.qml).
+
+# v5 Second style: "Lofi Window" (designed and built by Opus directly, on request)
+A cosy room window at the bottom of a tall city: the sky and skyline seen through a big
+divided window, a cat on the sill watching the city, a pothos, books and a coffee mug,
+a jar candle and fairy lights. Night is the signature look (indigo sky, warm windows,
+lamp-lit plum room); day is pastel. Rain beads and runs down the glass.
+
+## Files (`package/contents/ui/styles/lofi/`)
+- `geometry.js`: pure JS, every shape as an SVG path in screen pixels (layout, city, clouds,
+  branch, frost, ledge, plant, desk, candle, cat, garland). Seeded RNG, so the art is stable.
+- `palette.js`: pure JS, `#rrggbb` keyframes by sun elevation, clear vs overcast (`sky`, `room`,
+  `branch`, `lights`, `lamp`).
+- `Scene.qml` (composition, shared 20-min clock, lamp glow, lightning), `Sky.qml`, `City.qml`,
+  `Branch.qml`, `Rain.qml` (outside), `Glass.qml` (drops, mist, frost, snow ledge), `Room.qml`, `Cat.qml`.
+- Sprites made with PIL: `drop.png`, `slide.png`, `streak.png`, `glow.png`, `flake.png`.
+
+## Layout rules
+- Window: side margin max(4.5% W, 7% H), top 6% H, sill at 80% H. Panes = round(width / (0.95 * height)),
+  clamped 1..4, so 3 on 3440x1440, 2 on 1920x1080, 1 in portrait. Transom at 27% of the glass height.
+- Object size unit u = 1% of min(H, 0.9 W). The cat sits in the middle lower pane (or right of centre).
+
+## What moves
+Clouds drift (whole cycles of one shared clock, so no jumps); stars twinkle; city windows switch on
+and off; antenna beacons blink; a plane crosses now and then; the branch sways with the wind;
+fairy lights shimmer; the candle flickers; steam rises from the mug; the cat breathes, swishes
+its tail, twitches its ears and tilts its head. Rain: streaks outside, beads and running drops
+with wet trails on the glass, blurred city behind wet glass. Snow: flakes, frost, a drift on the
+ledge. Fog: haze layers and condensation. Storm: lightning that lights the room a little.
+
+## Checklist
+- [x] Geometry + palette, previewed as SVG at 21:9, 16:9 and portrait (day, dusk, night, rain, snow)
+- [x] QML components, qmllint clean (except unqualified access and one dynamic itemAt property)
+- [x] Installed; Plasma journal clean in every preview state (`./ws 1..6` at several hours)
+- [x] Smoke + layout + palette tests added to `tests/tst_smoke.qml` (user runs them)
+- [ ] User review of the look
+
+## Review
+- Runtime bugs found only through the journal, not qmllint: property names `L`/`H` (QML property
+  names must start lowercase) and `top` on an Emitter (overrides the FINAL `Item.top` anchor line).
+- The city uses the default Shape renderer (thousands of axis-aligned rects); curved art uses
+  CurveRenderer for antialiasing.
+
+# v6 Lofi: drops dry off, a cosier room
+User feedback: raindrops stay on the glass after the rain stops; the room could be way more cosy
+(look at lofi examples).
+
+Lofi room recipe from the search: warm interior light against a cool, rainy window; a desk lamp;
+plants everywhere; shelves of books; curtains; a steaming drink; small moving details.
+
+## Plan
+- [x] Drops: never stop the ParticleSystem (a stopped system freezes its particles); beads shrink and fade over ~25 s
+- [x] Layout: desk across the bottom, a smaller centred window, wall on both sides (21:9, 16:9, 32:9, portrait)
+- [x] Outside scaled to the window (`L.o`), sun and moon mapped into the window (`skyPoint`)
+- [x] Curtains tied back, rod with rings, fairy lights draped along the rod
+- [x] Desk: lamp with a light pool and cone (on from dusk / overcast), open notebook and pencil,
+      mug with steam, radio with drifting notes, a cactus
+- [x] Wall: shelves with books and a trailing pothos (left); a clock showing the real time and polaroids (right)
+- [x] Hanging pothos in the window, swaying on the shared clock
+- [x] Palette: one daytime colour per key, multiplied by the ambient light; lamp-lit keys warm up
+- [x] Draw lists: geometry returns `{d, c, a, w}` ops; `Paint.qml` and the SVG preview draw the same list
+- [x] Palette inputs quantised (elevation steps of 0.005), so 100+ shapes do not recolour every frame
+- [x] Preview 21:9 / 16:9 / portrait / 32:9 at day, dusk, night and rain
+- [x] Install, journal clean in all `ws` states; tests updated
+- [ ] User runs the tests
+
+## Review
+- New furniture beyond the plan: radiator under the window, headphones on the desk, a snake plant
+  (left end) and a jar of fairy lights on two books (right end), tiny lights on the photo string.
+  Desk items that do not fit (narrow or portrait screens) are left out, never squeezed.
+- New files: `Paint.qml` (generic draw-list painter), `Fairy.qml` (bulbs, used three times),
+  `Curtains.qml`, `Hanger.qml`, `Desk.qml`, `note.png`. `Room.qml` rewritten; steam moved to `Desk.qml`.
+- Sky clouds keep the continuous cloud value: it only drives opacities; a quantised value
+  would make cloud fade-ins step (one step = 0.11 opacity). Everything that recolours shapes uses the quantised `tone`/`overcast`.
+- `Pal.daylight` dropped with the daylight patch on the desk (hard edge, looked like a stain).
+- qmllint: only unqualified-access style warnings left in the older `Sky.qml`/`Scene.qml`.
+- Journal: no QML errors after install and through ws states 1-6 at several hours.
