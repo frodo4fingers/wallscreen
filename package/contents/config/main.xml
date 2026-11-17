@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+  <kcfgfile name=""/>
+
+  <group name="General">
+    <entry name="City" type="String">
+      <label>City name for the weather lookup</label>
+      <default>Berlin</default>
+    </entry>
+    <entry name="Latitude" type="Double">
+      <label>Latitude of the resolved city</label>
+      <default>52.52</default>
+    </entry>
+    <entry name="Longitude" type="Double">
+      <label>Longitude of the resolved city</label>
+      <default>13.405</default>
+    </entry>
+    <entry name="ResolvedCity" type="String">
+      <label>Name of the city the coordinates were resolved to</label>
+      <default></default>
+    </entry>
+    <entry name="CachedWeather" type="String">
+      <label>Last successful weather response (cache)</label>
+      <default></default>
+    </entry>
+    <entry name="PauseOnBattery" type="Bool">
+      <label>Pause animation on battery</label>
+      <default>true</default>
+    </entry>
+    <entry name="PauseWhenCovered" type="Bool">
+      <label>Pause when a maximized or fullscreen window covers the screen</label>
+      <default>true</default>
+    </entry>
+    <entry name="PreviewWeather" type="Int">
+      <label>Preview weather (0 Live, 1 Clear, 2 Cloudy, 3 Rain, 4 Snow, 5 Storm, 6 Fog)</label>
+      <default>0</default>
+    </entry>
+    <entry name="PreviewHour" type="Int">
+      <label>Preview hour of day (-1 live, otherwise 0-23)</label>
+      <default>-1</default>
+    </entry>
+  </group>
+
+</kcfg>

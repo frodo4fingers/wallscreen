@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Wallscreen"
+            }
+        ],
+        "Description": "Animated landscape that follows live weather and time of day",
+        "EnabledByDefault": true,
+        "Icon": "weather-few-clouds",
+        "Id": "de.wallscreen.weather",
+        "License": "MIT",
+        "Name": "Wallscreen",
+        "Version": "1.0"
+    },
+    "X-KDE-ParentApp": "org.kde.plasmashell"
+}
