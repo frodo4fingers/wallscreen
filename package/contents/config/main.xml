@@ -6,6 +6,10 @@
   <kcfgfile name=""/>
 
   <group name="General">
+    <entry name="Style" type="String">
+      <label>Visual style (folder name under ui/styles)</label>
+      <default>woodblock</default>
+    </entry>
     <entry name="City" type="String">
       <label>City name for the weather lookup</label>
       <default>Berlin</default>

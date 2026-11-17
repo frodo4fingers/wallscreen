@@ -6,6 +6,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "styles.js" as Styles
 
 Kirigami.FormLayout {
     id: root
@@ -17,6 +18,7 @@ Kirigami.FormLayout {
     property var wallpaperConfiguration
 
     // One property per entry in config/main.xml. Plasma binds each cfg_<Entry>.
+    property string cfg_Style: "woodblock"
     property string cfg_City: "Berlin"
     property double cfg_Latitude: 52.52
     property double cfg_Longitude: 13.405
@@ -26,6 +28,13 @@ Kirigami.FormLayout {
     property bool cfg_PauseWhenCovered: true
     property int cfg_PreviewWeather: 0
     property int cfg_PreviewHour: -1
+
+    QQC2.ComboBox {
+        Kirigami.FormData.label: "Style:"
+        model: Styles.STYLES.map(function (st) { return st.name; })
+        currentIndex: Math.max(0, Styles.STYLES.findIndex(function (st) { return st.id === root.cfg_Style; }))
+        onActivated: root.cfg_Style = Styles.STYLES[currentIndex].id
+    }
 
     QQC2.TextField {
         Kirigami.FormData.label: "City:"

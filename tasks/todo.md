@@ -148,3 +148,35 @@ The user wants a woodblock print look with vibrant colours. Chosen motifs: a sno
 - [x] Installed, restarted, 40s log: no QML errors.
 - [ ] User visual check (Meta+D)
 - [ ] Remove diagnostic logging once the user confirms
+
+---
+
+# v4 Selectable styles
+Goal: the current art becomes the "woodblock" style, and styles can be selected in the config. Git snapshot `woodblock-v1` (commit ceaaeef) was taken before the refactor.
+
+## Layout
+```
+package/contents/ui/
+  main.qml        shared: Weather, clock, smoothing, celestial, pause logic, preview. Loads the style via Loader.
+  Weather.qml     shared
+  logic.js        shared ONLY: weatherState, presetWeather, celestial, sceneLight, moonPhase, windX, HORIZON_Y
+  styles.js       registry: var STYLES = [{ id: "woodblock", name: "Woodblock (ukiyo-e)" }]
+  config.qml      + Style ComboBox (model from styles.js)
+  styles/woodblock/
+    Scene.qml     root of the style: composes the layers, owns its colours, fog, lightning, paper
+    palette.js    skyColors, season, snowCap, INK (moved out of logic.js)
+    Sky.qml Clouds.qml Landscape.qml Life.qml Precipitation.qml Paper.qml   (moved unchanged)
+```
+
+## Scene contract (every style's `Scene.qml`)
+Root Item with exactly one input: `property var world`, a QtObject owned by main.qml with these notifying props:
+- `now` (date), `latitude`, `month` (0-11, hemisphere-adjusted)
+- `elevation`, `light` (`sceneLight`), `sunX`, `sunY`, `moonX`, `moonY`, `sunVisible`, `moonVisible`, `moonPhase`, `starOpacity`
+- `clouds`, `rain`, `snow`, `fog`, `storm`, `windX` (already smoothed)
+- `running` (pause flag), `instant` (true briefly after a preview change, so a style may skip its colour fades)
+
+The style computes all its own colours from these values. It must handle `world` being null at load (use `world ? ... : default` or a guard).
+
+## Config
+- New entry `Style` (String, default "woodblock").
+- An unknown id falls back to "woodblock" (in main.qml).

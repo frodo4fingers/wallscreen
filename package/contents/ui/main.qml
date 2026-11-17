@@ -5,6 +5,7 @@ import org.kde.plasma.plasma5support as P5Support
 import org.kde.taskmanager as TaskManager
 import org.kde.kwindowsystem
 import "logic.js" as Logic
+import "styles.js" as Styles
 
 WallpaperItem {
     id: root
@@ -122,124 +123,48 @@ WallpaperItem {
         Qt.callLater(function () { root.ready = true; root.logPause("startup"); });
     }
 
-    readonly property var sky: Logic.skyColors(elevation, clouds)
-    readonly property real light: Logic.sceneLight(elevation, clouds)
+    // ---- style --------------------------------------------------------
 
-    // night indigo-grey to cream-white by light, plus a sakura/peach cast in the golden window at the horizon
-    readonly property color cloudTint: {
-        const lit = Qt.tint("#3a4170", Qt.rgba(0.984, 0.965, 0.914, light));   // #fbf6e9
-        const warm = Math.max(0, 1 - Math.abs(elevation - 0.03) / 0.12);
-        return Qt.tint(lit, Qt.rgba(0.965, 0.706, 0.604, warm));   // #f6b49a
+    readonly property string styleId: Styles.STYLES.some(function (st) { return st.id === configuration.Style; })
+        ? configuration.Style : "woodblock"
+
+    // everything a style's Scene.qml may read (see tasks/todo.md, Scene contract)
+    QtObject {
+        id: world
+        readonly property date now: root.now
+        readonly property real latitude: root.configuration.Latitude
+        readonly property int month: (root.now.getMonth() + (root.configuration.Latitude < 0 ? 6 : 0)) % 12
+        readonly property real elevation: root.elevation
+        readonly property real light: Logic.sceneLight(root.elevation, root.clouds)
+        readonly property real sunX: root.sunX
+        readonly property real sunY: root.sunY
+        readonly property real moonX: root.moonX
+        readonly property real moonY: root.moonY
+        readonly property bool sunVisible: root.cel.sunVisible
+        readonly property bool moonVisible: root.cel.moonVisible
+        readonly property real moonPhase: Logic.moonPhase(root.now)
+        readonly property real starOpacity: root.cel.starOpacity
+        readonly property real clouds: root.clouds
+        readonly property real rain: root.rain
+        readonly property real snow: root.snow
+        readonly property real fog: root.fog
+        readonly property real storm: root.storm
+        readonly property real windX: root.windX
+        readonly property bool running: root.active
+        readonly property bool instant: root.snapping
     }
 
-    // creamy mist by day (cream tinted by the sky), #5a6478 at night
-    readonly property color fogColor: Qt.tint("#5a6478", Qt.alpha(Qt.tint("#efe6cf", Qt.alpha(sky.bottom, 0.25)), light))
-
-    // ---- scene --------------------------------------------------------
-
-    Sky {
+    Loader {
+        id: styleLoader
         anchors.fill: parent
-        topColor: root.sky.top
-        bottomColor: root.sky.bottom
-        bandColor: root.sky.band
-        horizonColor: root.sky.horizon
-        horizonAlpha: root.sky.horizonAlpha
-        sunX: root.sunX
-        sunY: root.sunY
-        moonX: root.moonX
-        moonY: root.moonY
-        sunVisible: root.cel.sunVisible
-        moonVisible: root.cel.moonVisible
-        moonPhase: Logic.moonPhase(root.now)
-        starOpacity: root.cel.starOpacity * (1 - root.clouds)
-        running: root.active
+        source: Qt.resolvedUrl("styles/" + root.styleId + "/Scene.qml")
     }
 
-    Clouds {
-        anchors.fill: parent
-        cover: root.clouds
-        darkness: Math.max(root.storm, root.rain * 0.5)
-        windX: root.windX
-        tint: root.cloudTint
-        running: root.active
-    }
-
-    Landscape {
-        anchors.fill: parent
-        colors: Logic.season(root.now, root.configuration.Latitude)
-        light: root.light
-        snowCap: Logic.snowCap(root.now, root.configuration.Latitude)
-        ink: Logic.INK
-        windX: root.windX
-        running: root.active
-    }
-
-    Life {
-        anchors.fill: parent
-        month: (root.now.getMonth() + (root.configuration.Latitude < 0 ? 6 : 0)) % 12
-        light: root.light
-        windX: root.windX
-        precip: Math.max(root.rain, root.snow)
-        running: root.active
-    }
-
-    Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: root.height * 0.6
-        opacity: root.fog * 0.85
-        visible: opacity > 0
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.alpha(root.fogColor, 0) }
-            GradientStop { position: 0.6; color: root.fogColor }
-            GradientStop { position: 1.0; color: root.fogColor }
-        }
-    }
-
-    Precipitation {
-        anchors.fill: parent
-        rain: root.rain
-        snow: root.snow
-        windX: root.windX
-        running: root.active
-    }
-
-    Rectangle {
-        id: flash
-        anchors.fill: parent
-        color: "white"
-        opacity: 0
-        visible: opacity > 0
-
-        SequentialAnimation {
-            id: flashAnim
-            onStopped: flash.opacity = 0
-
-            NumberAnimation { target: flash; property: "opacity"; to: 0.55; duration: 60 }
-            NumberAnimation { target: flash; property: "opacity"; to: 0; duration: 120 }
-            NumberAnimation { target: flash; property: "opacity"; to: 0.35; duration: 50 }
-            NumberAnimation { target: flash; property: "opacity"; to: 0; duration: 300 }
-        }
-    }
-
-    // random gap between bolts; the interval is set from the handler, never from inside an animation
-    Timer {
-        id: boltTimer
-        repeat: false
-        running: root.storm > 0.3 && root.active
-        interval: 8000
-        onTriggered: {
-            flashAnim.restart();
-            interval = 6000 + Math.random() * 14000;
-            restart();
-        }
-    }
-
-    // washi grain on top of everything (not interactive)
-    Paper {
-        anchors.fill: parent
-        strength: 0.55
+    Binding {
+        target: styleLoader.item
+        property: "world"
+        value: world
+        when: styleLoader.status === Loader.Ready
     }
 
     // ---- pause logic --------------------------------------------------

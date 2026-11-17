@@ -4,7 +4,8 @@
 import QtQuick
 import QtTest
 import "../package/contents/ui"
-import "../package/contents/ui/logic.js" as Logic
+import "../package/contents/ui/styles/woodblock"
+import "../package/contents/ui/styles/woodblock/palette.js" as Palette
 
 Item {
     id: scene
@@ -16,7 +17,33 @@ Item {
     Component { id: landscapeComp; Landscape {} }
     Component { id: precipComp; Precipitation {} }
     Component { id: paperComp; Paper {} }
+    Component { id: sceneComp; Scene {} }
     Component { id: weatherComp; Weather {} }
+
+    QtObject {
+        id: stubWorld
+        property date now: new Date()
+        property real latitude: 52.52
+        property int month: 5
+        property real elevation: 0.5
+        property real light: 1
+        property real sunX: 0.5
+        property real sunY: 0.2
+        property real moonX: 0.5
+        property real moonY: 0.5
+        property bool sunVisible: true
+        property bool moonVisible: false
+        property real moonPhase: 0.5
+        property real starOpacity: 0
+        property real clouds: 0.5
+        property real rain: 1
+        property real snow: 1
+        property real fog: 0.5
+        property real storm: 1
+        property real windX: 0.2
+        property bool running: true
+        property bool instant: false
+    }
 
     TestCase {
         name: "Smoke"
@@ -33,7 +60,7 @@ Item {
         }
 
         function test_sky() {
-            var c = Logic.skyColors(0.5, 0.3)
+            var c = Palette.skyColors(0.5, 0.3)
             var obj = createTemporaryObject(skyComp, scene, {
                 width: 1920, height: 1080,
                 topColor: c.top,
@@ -61,9 +88,9 @@ Item {
         function test_landscape() {
             var obj = createTemporaryObject(landscapeComp, scene, {
                 width: 1920, height: 1080,
-                colors: Logic.season(new Date(), 50),
+                colors: Palette.season(new Date(), 50),
                 snowCap: 0.4,
-                ink: Logic.INK
+                ink: Palette.INK
             })
             verify(obj !== null, "Landscape failed to create")
             resizeAll(obj)
@@ -87,6 +114,20 @@ Item {
             })
             verify(obj !== null, "Paper failed to create")
             resizeAll(obj)
+        }
+
+        function test_scene() {
+            var obj = createTemporaryObject(sceneComp, scene, {
+                width: 1920, height: 1080,
+                world: stubWorld
+            })
+            verify(obj !== null, "Scene failed to create")
+            resizeAll(obj)
+        }
+
+        function test_scene_null_world() {
+            var obj = createTemporaryObject(sceneComp, scene, { width: 1920, height: 1080 })
+            verify(obj !== null, "Scene (null world) failed to create")
         }
 
         // Weather only checked for creation. valid stays false until the network
