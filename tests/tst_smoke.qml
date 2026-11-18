@@ -9,6 +9,7 @@ import "../package/contents/ui/styles/woodblock/palette.js" as Palette
 import "../package/contents/ui/styles/lofi" as Lofi
 import "../package/contents/ui/styles/lofi/geometry.js" as LofiGeo
 import "../package/contents/ui/styles/lofi/palette.js" as LofiPal
+import "../package/contents/ui/styles/ocean" as Ocean
 
 Item {
     id: scene
@@ -23,6 +24,7 @@ Item {
     Component { id: sceneComp; Scene {} }
     Component { id: weatherComp; Weather {} }
     Component { id: lofiComp; Lofi.Scene {} }
+    Component { id: oceanComp; Ocean.Scene {} }
 
     QtObject {
         id: stubWorld
@@ -226,6 +228,22 @@ Item {
             compare(LofiGeo.season(0), 3)   // January: winter
             compare(LofiGeo.season(3), 0)   // April: spring
             compare(LofiGeo.season(9), 2)   // October: autumn
+        }
+
+        function test_ocean_scene() {
+            var obj = createTemporaryObject(oceanComp, scene, {
+                width: 1920, height: 1080,
+                world: stubWorld
+            })
+            verify(obj !== null, "Ocean scene failed to create")
+            resizeAll(obj)
+            verify(obj.k > 0, "art scale")
+        }
+
+        function test_ocean_scene_null_world() {
+            var obj = createTemporaryObject(oceanComp, scene, { width: 1920, height: 1080 })
+            verify(obj !== null, "Ocean scene (null world) failed to create")
+            compare(obj.running, false)
         }
 
         // Weather only checked for creation. valid stays false until the network

@@ -329,3 +329,16 @@ Every state now draws one frame per 40 ms clock tick, plus a few for the 6 s sun
 - [x] Verified a `setWallpaper` round trip: Wallscreen loads, then is destroyed on switching back to image; `desktopForScreen(0)` is 1
 - [x] Removed the `logPause()` and cover diagnostics (they wrote window titles to the journal)
 - [ ] User switches with the wallpaper dialog both ways and confirms the icons stay after a re-login
+
+# v10 Fourth style: "Sunlit Ocean (painting)"
+The user's painting (open sea between cloud banks) with slow, quiet light. The user chose a
+fixed sunny day and very subtle motion.
+- [x] Assets made with PIL: `ocean.jpg`, `clouds.webp` (the painting cut out by a cloud mask),
+  `rays.png`, `spark.png`, `shade.png`
+- [x] `styles/ocean/Scene.qml`: cloud shadows drift over the sea under the static cloud
+  cut-out; four glint groups fade in and out on the sun's path; the rays sway and breathe.
+  The painting never moves. The clock ticks at 12.5 Hz.
+- [x] Registered in `styles.js`; smoke tests `test_ocean_scene` and `test_ocean_scene_null_world`
+- [x] Installed and live; GPU busy 16 % while animating against 9 % with the scene paused
+- [x] User saw no motion: added four small clouds cut from the painting that drift over the sea with their shadows; glints and rays made stronger. GPU busy 11 %
+- [ ] User looks at it and runs the tests

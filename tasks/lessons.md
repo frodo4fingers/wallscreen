@@ -54,3 +54,13 @@
 - **What**: The user could not switch from Wallscreen back to the image wallpaper, and desktop icons were missing. I first tested switches with `evaluateScript` and `d.wallpaperPlugin = ...`. Nothing changed on screen, even between stock plugins, and the tests were misleading.
 - **Why**: The scripting wrapper only applies `wallpaperPlugin` in its destructor, which runs at some later GC time. The config dialog's Apply calls `ShellCorona::setWallpaper()`, the same path as the D-Bus method `org.kde.PlasmaShell.setWallpaper`. The real cause was an orphaned `[Containments][8]` (old `org.kde.plasma.private.systemtray`, a plugin Plasma 6.6 no longer ships) with `lastScreen=0`. `Corona::containmentForScreen()` returns the last match, so every screen-0 lookup hit containment 8 instead of the desktop. Removing the group fixed it.
 - **Rule**: Reproduce wallpaper switches with `gdbus call ... org.kde.PlasmaShell.setWallpaper <plugin> '{}' 0` and check `desktopForScreen(0).id`. When a desktop setting "does not apply", look for stale containments in plasma-org.kde.plasma.desktop-appletsrc before suspecting our package. Never truncate a containment listing with `head`.
+
+### Keep the screen calm while the user is looking
+- **What**: While measuring the Lagoon style, I restarted plasmashell about six times in a row and showed a vivid, busy scene. The user said "my eyes hurt looking at this" and stopped the style.
+- **Why**: Every restart flashes the desktop, and the scene itself was loud. The user sits in front of this screen all day.
+- **Rule**: Batch performance runs and say before restarting Plasma repeatedly. Default to subtle, slow motion and calm colours for wallpaper work. Check a design with the user through stills (preview PNGs) before putting it live on their desktop.
+
+### Assert every scripted text replacement
+- **What**: A Python `str.replace` on Scene.qml matched nothing and failed silently. The drift arrays kept 4 fields, the sprite source read `[4]` as undefined, and three Plasma restarts went by before the cause was found.
+- **Why**: `replace` returns the text unchanged when the old text is absent, so a stale or mistyped search string goes unnoticed.
+- **Rule**: In scripted edits, `assert old in s` before each replace (or use the Edit tool, which fails loudly). Before restarting Plasma to test, grep the file for the new text.
