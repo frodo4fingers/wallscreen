@@ -60,17 +60,18 @@ WallpaperItem {
         ? Logic.presetWeather(appliedPreview)
         : Logic.weatherState(wx.code, wx.cloudCover, wx.precipitation, wx.visibility)
 
-    // smoothed so weather changes crossfade
+    // smoothed so weather changes crossfade; no fades while the wallpaper is paused, so a
+    // covered screen does not redraw
     property real clouds: ws.clouds
     property real rain: ws.rain
     property real snow: ws.snow
     property real fog: ws.fog
     property real storm: ws.storm
-    Behavior on clouds { enabled: root.ready && !root.snapping; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
-    Behavior on rain { enabled: root.ready && !root.snapping; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
-    Behavior on snow { enabled: root.ready && !root.snapping; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
-    Behavior on fog { enabled: root.ready && !root.snapping; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
-    Behavior on storm { enabled: root.ready && !root.snapping; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
+    Behavior on clouds { enabled: root.ready && !root.snapping && root.active; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
+    Behavior on rain { enabled: root.ready && !root.snapping && root.active; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
+    Behavior on snow { enabled: root.ready && !root.snapping && root.active; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
+    Behavior on fog { enabled: root.ready && !root.snapping && root.active; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
+    Behavior on storm { enabled: root.ready && !root.snapping && root.active; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
 
     // in preview, precipitation gets at least some slant so it is visible
     readonly property real windTarget: {
@@ -80,7 +81,7 @@ WallpaperItem {
         return w;
     }
     property real windX: windTarget
-    Behavior on windX { enabled: root.ready && !root.snapping; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
+    Behavior on windX { enabled: root.ready && !root.snapping && root.active; NumberAnimation { duration: 30000; easing.type: Easing.InOutSine } }
 
     // ---- celestial ----------------------------------------------------
 
@@ -91,36 +92,24 @@ WallpaperItem {
     property real moonX: 0.5
     property real moonY: 0.5
     property real elevation: 0
-    property bool snap: true    // true = assign without animating
     property bool ready: false
 
-    // 60 s linear glide turns the minute ticks into continuous motion
-    Behavior on sunX { enabled: !root.snap; NumberAnimation { duration: 60000 } }
-    Behavior on sunY { enabled: !root.snap; NumberAnimation { duration: 60000 } }
-    Behavior on moonX { enabled: !root.snap; NumberAnimation { duration: 60000 } }
-    Behavior on moonY { enabled: !root.snap; NumberAnimation { duration: 60000 } }
-    Behavior on elevation { enabled: !root.snap; NumberAnimation { duration: 60000 } }
-
+    // Positions step once a minute, by a few pixels, so they are assigned directly; a glide would
+    // keep an animation, and with it the wallpaper, redrawing at display rate.
     function applyCel() {
         const c = cel;
-        // big jump (midnight wrap, preview hour change): don't sweep across the screen
-        const jump = Math.max(Math.abs(c.sunX - sunX), Math.abs(c.sunY - sunY),
-                              Math.abs(c.moonX - moonX), Math.abs(c.moonY - moonY),
-                              Math.abs(c.elevation - elevation));
-        snap = !ready || jump > 0.3;
         sunX = c.sunX;
         sunY = c.sunY;
         moonX = c.moonX;
         moonY = c.moonY;
         elevation = c.elevation;
-        snap = false;
     }
     onCelChanged: applyCel()
     // ready flips after every child's onCompleted (Weather cache parse), so startup does not crossfade
     Component.onCompleted: {
         appliedPreview = previewWeather;
         applyCel();
-        Qt.callLater(function () { root.ready = true; root.logPause("startup"); });
+        Qt.callLater(function () { root.ready = true; });
     }
 
     // ---- style --------------------------------------------------------
@@ -213,23 +202,11 @@ WallpaperItem {
         onItemRemoved: Qt.callLater(root.recount)   // itemAt is still valid here, hence callLater
         delegate: Item {
             readonly property bool covers: model.IsMaximized === true || model.IsFullScreen === true
-            onCoversChanged: {
-                Qt.callLater(root.recount);
-                if (covers)
-                    console.log("Wallscreen cover changed: title=" + model.display
-                        + " IsMaximized=" + model.IsMaximized + " IsFullScreen=" + model.IsFullScreen);
-            }
+            onCoversChanged: Qt.callLater(root.recount)
         }
     }
 
     readonly property bool active:
         !(configuration.PauseOnBattery && onBattery)
         && !(configuration.PauseWhenCovered && covered)
-
-    function logPause(tag) {
-        console.log("Wallscreen " + tag + " active=" + active + " onBattery=" + onBattery + " covered=" + covered
-            + " count=" + coveredCount + " showingDesktop=" + KWindowSystem.showingDesktop
-            + " geom=" + JSON.stringify(tasks.screenGeometry) + " filterByScreen=" + tasks.filterByScreen);
-    }
-    onActiveChanged: logPause("active changed")
 }

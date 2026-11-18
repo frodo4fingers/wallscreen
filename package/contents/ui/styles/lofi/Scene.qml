@@ -33,16 +33,21 @@ Item {
     readonly property real lights: Pal.lights(tone, overcast)
     readonly property real lamp: Pal.lamp(tone, overcast)
 
-    // One slow clock, 0..1 every 20 min, drives drift, twinkle and flicker. Anything that
-    // repeats a whole number of times per cycle wraps without a jump.
-    property real clock: 0
-    NumberAnimation on clock {
-        from: 0
-        to: 1
-        duration: 1200000
-        loops: Animation.Infinite
-        running: true
-        paused: running && !scene.running
+    // One slow clock, 0..1 every 20 min, drives drift, twinkle, sway and flicker. A timer ticks
+    // it 25 times a second instead of an animation at display rate: every tick redraws the
+    // scene, and the room moves slowly. 30000 ticks make the 20 min, so it wraps exactly;
+    // anything that repeats a whole number of times per cycle wraps without a jump.
+    property int ticks: 0
+    readonly property real clock: ticks / 30000
+    Timer {
+        interval: 40
+        repeat: true
+        running: scene.running
+        onTriggered: {
+            scene.ticks = (scene.ticks + 1) % 30000;
+            if (outside.blurred && scene.ticks % 5 === 0)
+                outsideShot.scheduleUpdate();
+        }
     }
 
     Item {
@@ -51,12 +56,8 @@ Item {
 
         // wet or foggy glass softens everything behind it
         readonly property real blur: Math.min(1, scene.rain * 0.5 + scene.fog * 0.45)
-        layer.enabled: blur > 0.02
-        layer.effect: MultiEffect {
-            blurEnabled: true
-            blur: outside.blur
-            blurMax: 24
-        }
+        readonly property bool blurred: blur > 0.02
+        onBlurredChanged: if (blurred) outsideShot.scheduleUpdate()
 
         Sky {
             anchors.fill: parent
@@ -128,30 +129,66 @@ Item {
             overcast: scene.overcast
             snowColor: scene.sky.snow
             windX: scene.windX
+            clock: scene.clock
             running: scene.running
         }
+    }
 
-        Rain {
-            anchors.fill: parent
-            lay: scene.lay
-            rain: scene.rain
-            snow: scene.snow
-            windX: scene.windX
-            rainColor: scene.sky.rain
-            snowColor: scene.sky.snow
-            running: scene.running
-        }
+    // The view behind wet or foggy glass, blurred. While the wallpaper runs it is captured on every
+    // fifth clock tick (5 times a second), not on every change: each new capture costs an extra
+    // frame while the blur passes catch up, and behind wet glass the coarser motion does not show.
+    // While paused it follows changes directly, which then come only once a minute or so.
+    ShaderEffectSource {
+        id: outsideShot
+        anchors.fill: parent
+        sourceItem: outside
+        hideSource: outside.blurred
+        live: !scene.running
+        visible: false
+    }
+    MultiEffect {
+        anchors.fill: parent
+        source: outsideShot
+        visible: outside.blurred
+        autoPaddingEnabled: false
+        blurEnabled: true
+        blur: outside.blur
+        blurMax: 24
+    }
 
-        Rectangle {
-            id: flash
-            x: scene.lay.win.x
-            y: scene.lay.win.y
-            width: scene.lay.win.w
-            height: scene.lay.win.h
-            color: "#eef0ff"
-            opacity: 0
-            visible: opacity > 0
-        }
+    property real flashAt: -1      // clock value when the last bolt struck, -1 = none yet
+    // a bolt: a quick double flicker over 0.6 s, sampled on the clock like everything else
+    readonly property real flashLevel: {
+        const t = flashAt < 0 ? -1 : ((clock - flashAt + 1) % 1) * 1200;
+        if (t < 0 || t >= 0.6) return 0;
+        const k = [[0, 0], [0.06, 0.7], [0.17, 0.05], [0.22, 0.45], [0.6, 0]];
+        let i = 1;
+        while (t > k[i][0]) i++;
+        return k[i - 1][1] + (k[i][1] - k[i - 1][1]) * (t - k[i - 1][0]) / (k[i][0] - k[i - 1][0]);
+    }
+
+    // lightning brightens the sky; it stays out of the captured view, so every flash shows at full rate
+    Rectangle {
+        id: flash
+        x: scene.lay.win.x
+        y: scene.lay.win.y
+        width: scene.lay.win.w
+        height: scene.lay.win.h
+        color: "#eef0ff"
+        opacity: scene.flashLevel
+        visible: opacity > 0
+    }
+
+    // in front of the blurred view, so the streaks stay sharp and move at the full clock rate
+    Rain {
+        anchors.fill: parent
+        lay: scene.lay
+        rain: scene.rain
+        snow: scene.snow
+        windX: scene.windX
+        rainColor: scene.sky.rain
+        snowColor: scene.sky.snow
+        clock: scene.clock
     }
 
     Glass {
@@ -164,7 +201,7 @@ Item {
         glint: scene.room.glint
         snowColor: scene.sky.snow
         lights: scene.lights
-        running: scene.running
+        clock: scene.clock
     }
 
     Room {
@@ -183,6 +220,7 @@ Item {
         fur: scene.room.fur
         rim: scene.room.rim
         shadow: scene.room.shadow
+        clock: scene.clock
         running: scene.running
     }
 
@@ -235,23 +273,13 @@ Item {
         visible: opacity > 0
     }
 
-    SequentialAnimation {
-        id: flashAnim
-        onStopped: flash.opacity = 0
-
-        NumberAnimation { target: flash; property: "opacity"; to: 0.7; duration: 60 }
-        NumberAnimation { target: flash; property: "opacity"; to: 0.05; duration: 110 }
-        NumberAnimation { target: flash; property: "opacity"; to: 0.45; duration: 50 }
-        NumberAnimation { target: flash; property: "opacity"; to: 0; duration: 380 }
-    }
-
-    // random gap between bolts; the interval is set from the handler, never from inside an animation
+    // random gap between bolts; the handler only sets the start mark
     Timer {
         repeat: false
         running: scene.storm > 0.3 && scene.running
         interval: 8000
         onTriggered: {
-            flashAnim.restart();
+            scene.flashAt = scene.clock;
             interval = 6000 + Math.random() * 14000;
             restart();
         }

@@ -224,12 +224,18 @@ Item {
     Item {
         id: plane
         property real dir: 1
-        property real t: 0
         property real y0: 0
+        property real start: 0            // clock value at take-off
+        property real dur: 70000          // flight time in ms
+        property bool flying: false
+        // the clock wraps every 20 min (1200000 ms); t only matters while flying, and it must not
+        // depend on flying, which its change handler clears on landing
+        readonly property real t: Math.min(1, ((root.clock - start + 1) % 1) * 1200000 / dur)
+        onTChanged: if (t >= 1 && flying) flying = false
         readonly property real span: root.lay.win.w + root.sh * 0.04
         readonly property real blink: (root.clock * 1100) % 1      // ~1.1 s
 
-        visible: fly.running
+        visible: flying
         x: root.lay.win.x - root.sh * 0.02 + (dir > 0 ? t : 1 - t) * span
         y: y0 - t * root.sh * 0.02
 
@@ -272,16 +278,6 @@ Item {
         }
     }
 
-    NumberAnimation {
-        id: fly
-        target: plane
-        property: "t"
-        from: 0
-        to: 1
-        duration: 70000
-        paused: running && !root.running
-    }
-
     // random gap between planes; set from the handler, never from inside an animation
     Timer {
         repeat: false
@@ -290,9 +286,10 @@ Item {
         onTriggered: {
             plane.dir = Math.random() < 0.5 ? -1 : 1;
             plane.y0 = root.lay.win.y + root.sh * (0.06 + Math.random() * 0.16);
-            fly.duration = 55000 + Math.random() * 30000;
-            fly.restart();
-            interval = fly.duration + 60000 + Math.random() * 180000;
+            plane.dur = 55000 + Math.random() * 30000;
+            plane.start = root.clock;
+            plane.flying = true;
+            interval = plane.dur + 60000 + Math.random() * 180000;
             restart();
         }
     }

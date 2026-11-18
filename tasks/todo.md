@@ -256,3 +256,76 @@ plants everywhere; shelves of books; curtains; a steaming drink; small moving de
 - `Pal.daylight` dropped with the daylight patch on the desk (hard edge, looked like a stain).
 - qmllint: only unqualified-access style warnings left in the older `Sky.qml`/`Scene.qml`.
 - Journal: no QML errors after install and through ws states 1-6 at several hours.
+
+---
+
+# v7 Lofi light on the GPU (screen flicker)
+User report: the screen flickers from time to time. Measured with lofi visible on DP-1 (3440x1440 @100 Hz):
+GPU 59-93 % busy (avg 71 %), plasmashell 36 % of GPU time, memory clock switching 800/1200 MHz twice a
+second. The scene redrew ~170 shapes at display rate because several animations never stopped.
+Display errors also predate the wallpaper (amdgpu DMCUB at boot/dock, KWin blur FB failure at 09:58).
+
+## Plan
+- [x] Scene clock from a 40 ms Timer (25 fps), integer ticks, exact 20 min wrap
+- [x] Cat breath/swing and branch sway as clock functions (no infinite animations)
+- [x] Plane flight driven by the clock instead of a vsync NumberAnimation
+- [x] Steam and music notes as clock-driven items; Desk particle system and note.png removed
+- [x] Glass and rain particle systems run only while wet and until empty
+- [x] Rain moved out of the blurred outside layer
+- [x] Static room, curtain fabric and desk cached in layers
+- [x] main.qml sun/moon/elevation glides 60 s -> 2 s
+- [x] main.qml glides and weather fades only while active (a covered screen redrew all the time)
+- [x] Measure again (gpu_busy, plasmashell fdinfo share, fclk switches), dry and with ws 3 22
+- [ ] User runs tests, watches for flicker
+
+## Review
+Covered screen: 0 fps, GPU 8 % busy, plasmashell 0 % (before: redrawing all the time, 79 % busy).
+Visible, clear or cloudy: 29-35 fps, GPU 19-21 %, plasmashell 10-12 %.
+Visible in rain: still 116 fps, GPU 64 %: Qt particle systems advance on every vsync and cannot be
+throttled. Live weather was wet, so this was the common case. Follow-up in v8.
+
+# v8 Rain, snow and glass drops without Qt particles
+Rain and snow were the last display-rate load. No qsb on the system, so no shaders: static geometry,
+regenerated rarely, moved and faded on the 25 Hz clock.
+
+## Plan
+- [x] Rain: 3 depth sheets of spindle streaks, 2 copies each, sliding along the wind slant
+- [x] Snow: 6 sheets of flakes (3 depths x 2 sway phases), same scheme, sideways sway
+- [x] Beads: 12 staggered groups of drop.png on 24 s cycles, rain level latched per cycle (glass dries)
+- [x] Sliding drops: 10 per pane column on 16 s cycles, dotted trail revealed by a growing clip
+- [x] Rain and Glass take the clock; particles, running, streak.png and flake.png removed
+- [x] Smoke test for the new geometry at 5 screen sizes
+- [x] Review diff and a preview still; qmllint; install; journal through ws states
+- [x] Measure fps and GPU in rain, snow, storm, clear and live (target ~25-35 fps, ~20 %)
+- [x] Blurred view captured on every fifth tick (the blur chain cost an extra frame per change)
+- [x] Minute sun/moon glides removed (main.qml); window lights switch without a fade (City)
+- [x] Cat twitch, flick and tilt and the lightning computed from the clock
+- [x] Plane binding loop on t fixed; unused glow.png removed
+- [ ] User runs tests, looks at ws 3 22 and ws 4 12, watches for flicker
+
+## Review
+Frames counted per window with QSG_RENDER_TIMING; GPU from gpu_busy_percent and DRM fdinfo, 6 s each,
+3440x1440 at 100 Hz, wallpaper visible (PauseWhenCovered off for the test).
+
+| state           | fps  | GPU busy | plasmashell |
+|-----------------|------|----------|-------------|
+| before v7       | ~100 | 71 %     | 36.5 %      |
+| v7, rain        | 116  | 64 %     | 32 %        |
+| v8, rain night  | 36   | 18 %     | 12 %        |
+| v8, snow day    | 28   | 15 %     | 10 %        |
+| v8, storm night | 36   | 19 %     | 14 %        |
+| v8, fog morning | 33   | 17 %     | 11 %        |
+| v8, clear noon  | 29   | 14 %     | 8 %         |
+| v8, cloudy night| 27   | 13 %     | 9 %         |
+| v8, live (wet)  | 35   | 17 %     | 11 %        |
+| covered, paused | 0    | 8 %      | 0 %         |
+
+Every state now draws one frame per 40 ms clock tick, plus a few for the 6 s sun/moon fades and the
+30 s weather crossfades, which only run while the weather changes.
+
+## Fix: wallpaper switch and missing desktop icons (2026-11-18)
+- [x] Root cause: orphaned `[Containments][8]` (old `org.kde.plasma.private.systemtray`) claimed screen 0, so the config dialog and `setWallpaper` changed it instead of desktop containment 1
+- [x] Backed up the config to `~/.config/plasma-org.kde.plasma.desktop-appletsrc.bak-2026-11-18-orphan-systray` and removed the group
+- [x] Verified a `setWallpaper` round trip: Wallscreen loads, then is destroyed on switching back to image; `desktopForScreen(0)` is 1
+- [x] Removed the `logPause()` and cover diagnostics (they wrote window titles to the journal)
+- [ ] User switches with the wallpaper dialog both ways and confirms the icons stay after a re-login

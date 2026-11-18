@@ -15,12 +15,45 @@ Item {
 
     readonly property var g: Geo.cat(lay)
 
-    property real breath: 0
-    property real swing: -1
-    property real flick: 0
-    property real tilt: 0
-    property real earL: 0
-    property real earR: 0
+    property real clock: 0             // 0..1 every 20 min, shared with the scene
+    // 316 and 231 cycles per 20 min: a 3.8 s breath and a 5.2 s tail swing
+    readonly property real breath: 0.5 - 0.5 * Math.cos(2 * Math.PI * root.clock * 316)
+    readonly property real swing: Math.sin(2 * Math.PI * root.clock * 231)
+
+    // Event motions run on the shared clock too: each keeps the clock value it started at
+    // (-1 = not yet), and its value follows from the seconds since then, sampled at 25 Hz.
+    property real twitchLAt: -1
+    property real twitchRAt: -1
+    property real flickAt: -1
+    property real tiltAt: -1
+    property real tiltFrom: 0
+    property real tiltTo: 0
+    readonly property real earL: root.twitch(root.since(root.twitchLAt))
+    readonly property real earR: root.twitch(root.since(root.twitchRAt))
+    readonly property real flick: root.flickCurve(root.since(root.flickAt))
+    readonly property real tilt: {
+        const t = root.since(root.tiltAt);
+        if (t < 0) return root.tiltTo;
+        const x = Math.min(1, t / 0.9);                                    // 900 ms, InOutQuad
+        const e = x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+        return root.tiltFrom + (root.tiltTo - root.tiltFrom) * e;
+    }
+
+    // seconds since a start mark, -1 if it never started; the clock wraps every 20 min
+    function since(at) { return at < 0 ? -1 : ((root.clock - at + 1) % 1) * 1200 }
+    // ear twitch: up to 16 degrees in 70 ms, back in 200 ms with OutBack
+    function twitch(t) {
+        if (t < 0 || t >= 0.27) return 0;
+        if (t < 0.07) return 16 * t / 0.07;
+        const x = (t - 0.07) / 0.2 - 1;
+        return 16 * (1 - (1 + 2.70158 * x * x * x + 1.70158 * x * x));
+    }
+    // tail flick: out in 160 ms (OutQuad), back in 520 ms (InOutSine)
+    function flickCurve(t) {
+        if (t < 0 || t >= 0.68) return 0;
+        if (t < 0.16) { const x = t / 0.16; return 1 - (1 - x) * (1 - x); }
+        return 1 - (1 - Math.cos(Math.PI * (t - 0.16) / 0.52)) / 2;
+    }
 
     // a body part rotating about a pivot (ears and tail)
     component Part: Shape {
@@ -43,56 +76,16 @@ Item {
         }
     }
 
-    SequentialAnimation on breath {
-        loops: Animation.Infinite
-        running: true
-        paused: running && !root.running
-        NumberAnimation { to: 1; duration: 1700; easing.type: Easing.InOutSine }
-        NumberAnimation { to: 0; duration: 2100; easing.type: Easing.InOutSine }
-    }
-    SequentialAnimation on swing {
-        loops: Animation.Infinite
-        running: true
-        paused: running && !root.running
-        NumberAnimation { to: 1; duration: 2600; easing.type: Easing.InOutSine }
-        NumberAnimation { to: -1; duration: 2600; easing.type: Easing.InOutSine }
-    }
-
-    SequentialAnimation {
-        id: twitchL
-        paused: running && !root.running
-        NumberAnimation { target: root; property: "earL"; to: 16; duration: 70 }
-        NumberAnimation { target: root; property: "earL"; to: 0; duration: 200; easing.type: Easing.OutBack }
-    }
-    SequentialAnimation {
-        id: twitchR
-        paused: running && !root.running
-        NumberAnimation { target: root; property: "earR"; to: 16; duration: 70 }
-        NumberAnimation { target: root; property: "earR"; to: 0; duration: 200; easing.type: Easing.OutBack }
-    }
-    SequentialAnimation {
-        id: flickAnim
-        paused: running && !root.running
-        NumberAnimation { target: root; property: "flick"; to: 1; duration: 160; easing.type: Easing.OutQuad }
-        NumberAnimation { target: root; property: "flick"; to: 0; duration: 520; easing.type: Easing.InOutSine }
-    }
-    NumberAnimation {
-        id: tiltAnim
-        target: root
-        property: "tilt"
-        duration: 900
-        easing.type: Easing.InOutQuad
-        paused: running && !root.running
-    }
-
-    // random gaps, set from the handlers, never from inside an animation
+    // random gaps; the handlers only set start marks, the motion itself follows the clock
     Timer {
         repeat: false
         running: root.running
         interval: 5000
         onTriggered: {
             const p = Math.random();
-            (p < 0.35 ? twitchL : p < 0.7 ? twitchR : flickAnim).restart();
+            if (p < 0.35) root.twitchLAt = root.clock;
+            else if (p < 0.7) root.twitchRAt = root.clock;
+            else root.flickAt = root.clock;
             interval = 3000 + Math.random() * 9000;
             restart();
         }
@@ -102,8 +95,9 @@ Item {
         running: root.running
         interval: 11000
         onTriggered: {
-            tiltAnim.to = Math.random() < 0.35 ? 0 : (Math.random() * 2 - 1) * 9;
-            tiltAnim.restart();
+            root.tiltFrom = root.tilt;
+            root.tiltTo = Math.random() < 0.35 ? 0 : (Math.random() * 2 - 1) * 9;
+            root.tiltAt = root.clock;
             interval = 6000 + Math.random() * 16000;
             restart();
         }

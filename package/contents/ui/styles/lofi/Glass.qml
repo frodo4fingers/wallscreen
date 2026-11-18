@@ -1,11 +1,12 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
-import QtQuick.Particles
 import "geometry.js" as Geo
 
 // Everything on the window glass: snow on the outer ledge, faint glints, condensation,
-// frost, and raindrops that bead, slide down and leave wet trails. Whatever falls outside
-// the panes is hidden by the frame drawn on top.
+// frost, and raindrops that bead, slide down and leave wet trails. The drops are static geometry
+// that the shared clock fades, shrinks and moves, not particles. Whatever falls outside the
+// panes is hidden by the frame drawn on top.
 Item {
     id: root
 
@@ -17,7 +18,7 @@ Item {
     property color glint: "white"
     property color snowColor: "#f6f8ff"
     property real lights: 0
-    property bool running: true
+    property real clock: 0
 
     readonly property real sh: lay.o                          // outside scale, see layout
     readonly property real gb: lay.glass.y + lay.glass.h      // bottom edge of the glass
@@ -90,82 +91,99 @@ Item {
     }
 
     // ---- raindrops ----
-    // Keep the system running when the rain stops: a stopped system freezes its particles,
-    // while a running one lets the last drops shrink and fade.
-    ParticleSystem {
-        id: sys
-        paused: !root.running
-    }
+    // Beads land in 12 staggered groups on 24 s cycles and evaporate: they shrink and fade, then
+    // the group is drawn again from a new seed. The rain level is latched when a cycle begins, so
+    // the glass dries group by group within about 24 s after the rain. Heavy drops run down the
+    // lower panes in 10 slots per pane column on 16 s cycles, leaving a dotted trail that a
+    // growing clip reveals and that fades once the drop is gone. Cycle counts divide the 20 min
+    // clock evenly (50 and 75), so every group and slot wraps without a jump.
+    readonly property int perGroup: Math.ceil(18 * area * 24 / 12)   // beads per group at full rain
+    readonly property int slots: 10 * lay.n
 
-    ImageParticle {   // beads and trail droplets
-        system: sys
-        groups: ["bead", "trail"]
-        source: "drop.png"
-        alpha: 0.85
-        entryEffect: ImageParticle.Fade
-    }
-    ImageParticle {
-        system: sys
-        groups: ["slide"]
-        source: "slide.png"
-        alpha: 0.95
-        entryEffect: ImageParticle.Fade
-    }
+    Repeater {
+        model: 12
+        Item {
+            id: grp
+            required property int index
+            readonly property real phase: root.clock * 50 + index / 12      // 24 s cycles, 50 per 20 min
+            readonly property int cycle: Math.floor(phase) % 50
+            readonly property real age: phase - Math.floor(phase)          // 0..1 through the cycle
+            property real level: 0                                          // rain when the cycle began
+            onCycleChanged: level = root.rain > 0.02 ? root.rain : 0
+            Component.onCompleted: level = root.rain > 0.02 ? root.rain : 0
+            readonly property var pts: Geo.beads(root.lay, index * 9973 + cycle * 7919 + 1, root.perGroup)
+            readonly property int count: Math.round(root.perGroup * level)
+            readonly property real shrink: Math.round((1 - 0.65 * age) * 20) / 20   // evaporating; steps keep updates rare
+            anchors.fill: parent
+            opacity: Math.max(0, Math.min(1, age / 0.02, (1 - age) / 0.15))
+            visible: count > 0 && opacity > 0.01
 
-    Emitter {   // drops landing on the glass; they evaporate slowly, so the glass dries after the rain
-        system: sys
-        group: "bead"
-        enabled: root.rain > 0.02
-        x: root.lay.glass.x
-        y: root.lay.glass.y
-        width: root.lay.glass.w
-        height: root.lay.glass.h
-        emitRate: 18 * root.area * root.rain
-        lifeSpan: 24000
-        lifeSpanVariation: 10000
-        size: root.sh * 0.0072
-        sizeVariation: root.sh * 0.004
-        endSize: root.sh * 0.0025
-    }
-
-    Emitter {   // heavy drops that run down the lower panes
-        system: sys
-        group: "slide"
-        enabled: root.rain > 0.15
-        readonly property real fromY: root.lay.transomY + root.lay.m
-        x: root.lay.glass.x
-        y: fromY
-        width: root.lay.glass.w
-        height: (root.gb - fromY) * 0.55
-        emitRate: 1.2 * root.lay.n * root.rain
-        lifeSpan: 7000
-        lifeSpanVariation: 3000
-        size: root.sh * 0.012
-        sizeVariation: root.sh * 0.004
-        velocity: AngleDirection {
-            angle: 90
-            angleVariation: 4
-            magnitude: root.sh * 0.05
-            magnitudeVariation: root.sh * 0.03
+            Repeater {
+                model: root.perGroup
+                Image {
+                    required property int index
+                    readonly property var p: grp.pts[index]
+                    visible: index < grp.count
+                    source: "drop.png"
+                    x: p.x - p.s / 2
+                    y: p.y - p.s / 2
+                    width: p.s
+                    height: p.s
+                    scale: grp.shrink
+                    opacity: 0.85
+                    mipmap: true
+                }
+            }
         }
     }
 
-    TrailEmitter {   // the wet trail a running drop leaves behind
-        system: sys
-        group: "trail"
-        follow: "slide"
-        emitRatePerParticle: 12
-        lifeSpan: 9000
-        lifeSpanVariation: 3000
-        size: root.sh * 0.0035
-        sizeVariation: root.sh * 0.0015
-        endSize: root.sh * 0.0012
-    }
+    Repeater {
+        model: root.slots
+        Item {
+            id: slot
+            required property int index
+            readonly property real phase: root.clock * 75 + index / root.slots   // 16 s cycles, 75 per 20 min
+            readonly property int cycle: Math.floor(phase) % 75
+            readonly property real age: (phase - Math.floor(phase)) * 16        // seconds into the cycle
+            property bool live: false                                           // latched when the cycle begins
+            onCycleChanged: live = root.rain > 0.15 && Geo.rng(index * 7907 + cycle * 3571 + 5)() < root.rain
+            readonly property var tr: Geo.trail(root.lay, index * 104729 + cycle * 1299709 + 3)
+            readonly property real run: Math.min(age, tr.d)
+            anchors.fill: parent
+            opacity: age < tr.d ? 1 : Math.max(0, 1 - (age - tr.d) / (16 - tr.d))
+            visible: live && opacity > 0.01
 
-    Wander {
-        system: sys
-        groups: ["slide"]
-        xVariance: root.sh * 0.01
-        pace: root.sh * 0.03
+            Item {   // reveals the trail down to the drop
+                x: slot.tr.left
+                y: slot.tr.top
+                width: slot.tr.right - slot.tr.left
+                height: slot.tr.y0 - slot.tr.top + slot.run * slot.tr.v + slot.tr.size / 2
+                clip: true
+
+                Shape {
+                    x: -slot.tr.left
+                    y: -slot.tr.top
+                    width: root.width
+                    height: root.height
+                    preferredRendererType: Shape.CurveRenderer
+                    ShapePath {
+                        strokeColor: "transparent"
+                        fillColor: Qt.alpha("#e4e8f0", 0.5)
+                        PathSvg { path: slot.tr.dots }
+                    }
+                }
+            }
+
+            Image {
+                source: "slide.png"
+                visible: slot.age < slot.tr.d
+                width: slot.tr.size
+                height: width
+                x: Geo.trailX(slot.tr, slot.run) - width / 2
+                y: slot.tr.y0 + slot.run * slot.tr.v - height / 2
+                opacity: 0.95 * Math.max(0, Math.min(1, slot.age / 0.3, (slot.tr.d - slot.age) / 0.8))
+                mipmap: true
+            }
+        }
     }
 }

@@ -179,6 +179,40 @@ Item {
             }
         }
 
+        // The rain, snow and raindrop geometry is finite and its loop counts are whole numbers.
+        function test_lofi_weather_geometry() {
+            var sizes = [[3440, 1440], [1920, 1080], [1080, 1920], [5120, 1440], [1600, 1200]]
+            var slants = [-0.35, 0, 0.35]
+            for (var i = 0; i < sizes.length; i++) {
+                var L = LofiGeo.layout(sizes[i][0], sizes[i][1]), at = " at " + sizes[i]
+                for (var s = 0; s < slants.length; s++) {
+                    for (var a = 0; a < 9; a++) {   // 3 rain sheets, then 6 snow sheets
+                        var sh = a < 3 ? LofiGeo.rainSheet(L, a, slants[s]) : LofiGeo.snowSheet(L, a - 3, slants[s])
+                        verify(sh.d.length > 0, "sheet path" + at)
+                        verify(!/NaN|undefined/.test(sh.d), "finite sheet path" + at)
+                        verify(sh.period > 0, "period" + at)
+                        verify(sh.k >= 1 && sh.k === Math.round(sh.k), "whole periods per cycle" + at)
+                        if (a >= 3) {
+                            verify(sh.m >= 1 && sh.m === Math.round(sh.m), "whole sway cycles" + at)
+                            verify(isFinite(sh.amp), "sway amplitude" + at)
+                        }
+                    }
+                }
+                var b = LofiGeo.beads(L, 42, 50)
+                compare(b.length, 50)
+                for (var j = 0; j < b.length; j++) {
+                    verify(b[j].x >= L.glass.x && b[j].x <= L.glass.x + L.glass.w, "bead x" + at)
+                    verify(b[j].y >= L.glass.y && b[j].y <= L.glass.y + L.glass.h, "bead y" + at)
+                    verify(b[j].s > 0, "bead size" + at)
+                }
+                var t = LofiGeo.trail(L, 7)
+                verify(t.v > 0 && t.d > 0, "trail speed" + at)
+                verify(isFinite(t.x0) && isFinite(t.y0) && isFinite(t.amp) && isFinite(t.size), "trail fields" + at)
+                verify(t.dots.length > 0 && !/NaN|undefined/.test(t.dots), "finite trail dots" + at)
+                verify(Math.abs(LofiGeo.trailX(t, 0) - t.x0) < 1e-6, "trail starts at x0" + at)
+            }
+        }
+
         function test_lofi_palette() {
             var hex = /^#[0-9a-f]{6}$/
             var es = [-1, -0.1, 0, 0.1, 1]

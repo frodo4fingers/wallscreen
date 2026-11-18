@@ -44,7 +44,8 @@ Item {
         ShapePath { strokeColor: "transparent"; fillColor: Pal.LIT[3]; PathSvg { path: root.g.lit[3] } }
     }
 
-    // windows that change state now and then; each covers a lit window of the static layer
+    // windows that change state now and then; each covers a lit window of the static layer. They
+    // switch on and off at once, as real lights do; a fade would redraw the wallpaper at display rate.
     Repeater {
         id: flick
         model: root.near ? root.g.flick : []
@@ -64,7 +65,6 @@ Item {
                 anchors.fill: parent
                 color: Pal.LIT[win.modelData.c]
                 opacity: win.lit ? root.lights : 0
-                Behavior on opacity { NumberAnimation { duration: 350 } }
             }
         }
     }

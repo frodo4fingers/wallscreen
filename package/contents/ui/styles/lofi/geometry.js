@@ -467,6 +467,90 @@ function ledge(L) {
     return s
 }
 
+// ---- weather -------------------------------------------------------------
+// Rain, snow and raindrops as static geometry. Rain.qml and Glass.qml slide or fade it on the
+// shared clock, so nothing here is regenerated while the weather holds. Sheets are x in scene
+// pixels and y from the sheet top, 0..period.
+
+// One of three rain sheets (0 mid, 1 far, 2 near): thin spindles along (slant, 1). The sheet is
+// period tall and k whole periods pass per 20 min clock cycle, so the wrap is seamless.
+function rainSheet(L, i, slant) {
+    var o = L.o, fall = L.sillY - L.win.y, period = fall + 0.2 * o
+    var f = [1, 0.7, 1.35][i], sp = [1, 0.8, 1.2][i]
+    var areaR = clamp(L.win.w * L.win.h / (1600 * 800), 0.4, 2.4)
+    var total = 220 * areaR * (fall + 0.1 * o) / (1.25 * o)       // streaks over the window today
+    var rho = total / (L.win.w * (fall + 0.1 * o)) / 3                    // per px2 for one sheet
+    var pad = 0.05 * o, drift = Math.abs(slant) * period
+    var x0 = L.win.x - pad - drift, x1 = L.win.x + L.win.w + pad + drift
+    var count = Math.round(rho * (x1 - x0) * period)
+    var r = rng(9001 + i * 131 + Math.round(slant * 100)), dl = Math.sqrt(slant * slant + 1)
+    var dx = slant / dl, dy = 1 / dl, nx = -dy, ny = dx, d = ""
+    for (var s = 0; s < count; s++) {
+        var len = o * (0.045 + 0.04 * r()) * f, hw = Math.max(0.6, len * 0.025)
+        var cx = x0 + r() * (x1 - x0), cy = r() * period
+        d += poly([[cx - dx * len / 2, cy - dy * len / 2], [cx + nx * hw, cy + ny * hw],
+                   [cx + dx * len / 2, cy + dy * len / 2], [cx - nx * hw, cy - ny * hw]])
+    }
+    return { d: d, period: period, k: Math.max(1, Math.round(1200 * 1.25 * o * sp / period)) }
+}
+
+// One of six snow sheets (i % 3: 0 mid, 1 far, 2 near). The flakes also sway: m whole sway
+// cycles per clock cycle, amp wide, phase ph.
+function snowSheet(L, i, slant) {
+    var o = L.o, fall = L.sillY - L.win.y, period = fall + 0.2 * o, j = i % 3
+    var f = [1, 0.65, 1.5][j], sp = [1, 0.7, 1.35][j]
+    var amp = 0.02 * o * f
+    var areaR = clamp(L.win.w * L.win.h / (1600 * 800), 0.4, 2.4)
+    var total = 70 * areaR * (fall + 0.05 * o) / (0.09 * o)
+    var rho = total / (L.win.w * (fall + 0.05 * o)) / 6
+    var pad = 0.05 * o + amp, drift = Math.abs(slant) * period
+    var x0 = L.win.x - pad - drift, x1 = L.win.x + L.win.w + pad + drift
+    var count = Math.round(rho * (x1 - x0) * period)
+    var r = rng(7001 + i * 97 + Math.round(slant * 100)), d = ""
+    for (var s = 0; s < count; s++) {
+        var rad = Math.max(0.8, o * (0.0012 + 0.0018 * r()) * f)
+        d += circle(x0 + r() * (x1 - x0), r() * period, rad)
+    }
+    return { d: d, period: period, k: Math.max(1, Math.round(1200 * 0.09 * o * sp / period)),
+             amp: amp, m: [173, 211, 151, 197, 229, 163][i], ph: i * 0.37 }
+}
+
+// beads of water on the glass: n points with a sprite size
+function beads(L, seed, n) {
+    var r = rng(seed), a = []
+    for (var i = 0; i < n; i++)
+        a.push({ x: L.glass.x + r() * L.glass.w, y: L.glass.y + r() * L.glass.h,
+                 s: L.o * (0.0072 + 0.004 * (2 * r() - 1)) })
+    return a
+}
+
+// x of a sliding drop a seconds after it set off; it starts exactly at x0
+function trailX(t, a) { return t.x0 + t.amp * (Math.sin(t.wf * a + t.ph) - Math.sin(t.ph)) }
+
+// A heavy drop that runs down the lower panes at v px/s for d s, with its trail of dots (older
+// dots higher up are smaller, as if drying). left, right and top box the trail for a reveal clip.
+function trail(L, seed) {
+    var o = L.o, r = rng(seed), gb = L.glass.y + L.glass.h, fromY = L.transomY + L.m
+    var t = { x0: L.glass.x + r() * L.glass.w, y0: fromY + r() * (gb - fromY) * 0.55 }
+    t.v = o * (0.02 + 0.06 * r())
+    t.d = 4 + 6 * r()
+    t.amp = o * 0.004 * (0.5 + r())
+    t.wf = 2 * Math.PI * (0.15 + 0.25 * r())
+    t.ph = 2 * Math.PI * r()
+    t.size = o * (0.008 + 0.008 * r())
+    var dotR = o * (0.0035 + 0.0015 * (2 * r() - 1)) / 2
+    var sp = Math.max(2, o * 0.004), N = Math.max(1, Math.floor(t.v * t.d / sp)), dots = ""
+    for (var k = 0; k <= N; k++) {
+        var a = k * sp / t.v
+        dots += circle(trailX(t, a), t.y0 + t.v * a, dotR * (0.35 + 0.65 * k / N))
+    }
+    t.dots = dots
+    t.left = t.x0 - 2 * t.amp - t.size
+    t.right = t.x0 + 2 * t.amp + t.size
+    t.top = t.y0 - t.size
+    return t
+}
+
 // ---- sill ----------------------------------------------------------------
 
 var HEART = [["M", 0.12, 0], ["C", -0.05, -0.38, 0.5, -0.6, 1, 0], ["C", 0.5, 0.6, -0.05, 0.38, 0.12, 0], ["Z"]]

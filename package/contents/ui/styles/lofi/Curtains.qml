@@ -13,16 +13,23 @@ Item {
 
     readonly property var garland: Geo.garland(lay)
 
-    Paint {
+    // static, so drawn once and cached; re-rendered only on palette steps
+    Item {
         anchors.fill: parent
-        c: root.c
-        ops: Geo.curtains(root.lay)
+        layer.enabled: true
+
+        Paint {
+            anchors.fill: parent
+            c: root.c
+            ops: Geo.curtains(root.lay)
+        }
+        Paint {
+            anchors.fill: parent
+            c: root.c
+            ops: root.garland.ops
+        }
     }
-    Paint {
-        anchors.fill: parent
-        c: root.c
-        ops: root.garland.ops
-    }
+
     Fairy {
         anchors.fill: parent
         bulbs: root.garland.bulbs

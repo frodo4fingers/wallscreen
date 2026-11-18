@@ -19,14 +19,9 @@ Item {
     readonly property var g: Geo.branch(lay, month)
     readonly property var c: Pal.branch(g.season, elevation, overcast)
 
-    property real swing: -1
-    SequentialAnimation on swing {
-        loops: Animation.Infinite
-        running: true
-        paused: running && !root.running
-        NumberAnimation { to: 1; duration: 3600; easing.type: Easing.InOutSine }
-        NumberAnimation { to: -1; duration: 3600; easing.type: Easing.InOutSine }
-    }
+    property real clock: 0
+    // 167 cycles per 20 min: a 7.2 s sway
+    readonly property real swing: Math.sin(2 * Math.PI * root.clock * 167)
 
     Shape {
         anchors.fill: parent
