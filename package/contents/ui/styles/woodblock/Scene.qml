@@ -1,7 +1,7 @@
 import QtQuick
 import "palette.js" as Palette
 
-// Woodblock (ukiyo-e) style. Reads everything from `world` (see tasks/todo.md, Scene contract).
+// Woodblock (ukiyo-e) style. Reads everything from `world` (see README.md, "Writing a style").
 Item {
     id: scene
 

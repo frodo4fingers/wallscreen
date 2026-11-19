@@ -117,7 +117,7 @@ WallpaperItem {
     readonly property string styleId: Styles.STYLES.some(function (st) { return st.id === configuration.Style; })
         ? configuration.Style : "woodblock"
 
-    // everything a style's Scene.qml may read (see tasks/todo.md, Scene contract)
+    // everything a style's Scene.qml may read (see README.md, "Writing a style")
     QtObject {
         id: world
         readonly property date now: root.now

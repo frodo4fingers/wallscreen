@@ -5,7 +5,7 @@ import "geometry.js" as Geo
 import "palette.js" as Pal
 
 // Lofi Window: a cosy room window looking out over a city. Reads everything from `world`
-// (see tasks/todo.md, Scene contract). Shapes come from geometry.js, colours from palette.js.
+// (see README.md, "Writing a style"). Shapes come from geometry.js, colours from palette.js.
 Item {
     id: scene
 

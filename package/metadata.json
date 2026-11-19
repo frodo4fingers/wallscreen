@@ -3,16 +3,17 @@
     "KPlugin": {
         "Authors": [
             {
-                "Name": "Wallscreen"
+                "Name": "frodo4fingers"
             }
         ],
-        "Description": "Animated landscape that follows live weather and time of day",
+        "Description": "Animated wallpaper in four styles that follows the live weather and time of day",
         "EnabledByDefault": true,
         "Icon": "weather-few-clouds",
         "Id": "de.wallscreen.weather",
         "License": "MIT",
         "Name": "Wallscreen",
-        "Version": "1.0"
+        "Version": "1.0",
+        "Website": "https://github.com/frodo4fingers/wallscreen"
     },
     "X-KDE-ParentApp": "org.kde.plasmashell"
 }
