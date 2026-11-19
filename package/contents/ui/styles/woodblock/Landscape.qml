@@ -13,7 +13,8 @@ Item {
     property real snowCap: 0.3           // fraction of volcano height under snow
     property color ink: "#1d1a2e"
     property real windX: 0               // -1..1, leans pines and scales sway
-    property bool running: true          // false pauses the sway
+    property bool running: true          // kept for callers; the stopped clock freezes the sway
+    property real clock: 0               // 0..1 every 20 min, from Scene
 
     // Contract HORIZON_Y: highest crest of the far layer.
     readonly property real horizonY: 0.62
@@ -227,9 +228,12 @@ Item {
     property color volcTop: lit("#26407c", 0.18)
     property color volcRock: lit("#3a5a9a", 0.18)
     property color snowFill: lit("#f7f4ec", 0.08)
-    Behavior on volcTop { ColorAnimation { duration: 20000 } }
-    Behavior on volcRock { ColorAnimation { duration: 20000 } }
-    Behavior on snowFill { ColorAnimation { duration: 20000 } }
+
+    // deterministic hash in 0..1, so every start sways the same way
+    function rnd(seed, k) {
+        const s = Math.sin(seed * 127.1 + k * 311.7) * 43758.5453;
+        return s - Math.floor(s);
+    }
 
     Shape {
         anchors.fill: parent
@@ -261,6 +265,7 @@ Item {
 
         Shape {
             id: hill
+            required property int index
             anchors.fill: parent
             preferredRendererType: Shape.CurveRenderer
 
@@ -273,10 +278,6 @@ Item {
             property color treeFill: root.lit("#1d5a3a", def.haze)
             property color vermFill: root.lit("#c8432b", def.haze * 0.5)
             property color roofFill: root.lit("#2a2236", def.haze * 0.5)
-            Behavior on fill { ColorAnimation { duration: 20000 } }
-            Behavior on treeFill { ColorAnimation { duration: 20000 } }
-            Behavior on vermFill { ColorAnimation { duration: 20000 } }
-            Behavior on roofFill { ColorAnimation { duration: 20000 } }
 
             // Hill body.
             ShapePath {
@@ -320,22 +321,19 @@ Item {
 
                 Item {
                     id: tree
+                    required property int index
+                    required property var modelData
                     readonly property var tp: root.treeParts(hill.def.pts, modelData, root.width, root.height)
                     readonly property real amp: 0.6 + 1.6 * Math.abs(root.windX)
-                    property real unit: Math.random() * 2 - 1      // -1..1, random start = random phase
-                    readonly property int halfMs: (3500 + Math.random() * 2500) / 2
+                    // sway period 3.5-6 s; a whole number of swings per clock cycle (1200 s)
+                    // keeps the wrap seamless
+                    readonly property int seed: hill.index * 100 + index + 1
+                    readonly property int m: Math.round(1200 / (3.5 + 2.5 * root.rnd(seed, 1)))
+                    readonly property real unit: Math.sin(2 * Math.PI * (root.clock * m + root.rnd(seed, 2)))      // -1..1
 
                     x: tp.bx
                     y: tp.by
                     transform: Rotation { angle: root.windX * 2.5 + tree.unit * tree.amp }
-
-                    SequentialAnimation on unit {
-                        loops: Animation.Infinite
-                        running: true
-                        paused: running && !root.running
-                        NumberAnimation { to: 1; duration: tree.halfMs; easing.type: Easing.InOutSine }
-                        NumberAnimation { to: -1; duration: tree.halfMs; easing.type: Easing.InOutSine }
-                    }
 
                     // Trunk and branches.
                     Shape {

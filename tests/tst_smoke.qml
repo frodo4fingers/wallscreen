@@ -6,6 +6,7 @@ import QtTest
 import "../package/contents/ui"
 import "../package/contents/ui/styles/woodblock"
 import "../package/contents/ui/styles/woodblock/palette.js" as Palette
+import "../package/contents/ui/styles/woodblock/precip.js" as WoodPrecip
 import "../package/contents/ui/styles/lofi" as Lofi
 import "../package/contents/ui/styles/lofi/geometry.js" as LofiGeo
 import "../package/contents/ui/styles/lofi/palette.js" as LofiPal
@@ -21,6 +22,7 @@ Item {
     Component { id: cloudsComp; Clouds {} }
     Component { id: landscapeComp; Landscape {} }
     Component { id: precipComp; Precipitation {} }
+    Component { id: lifeComp; Life {} }
     Component { id: paperComp; Paper {} }
     Component { id: sceneComp; Scene {} }
     Component { id: weatherComp; Weather {} }
@@ -113,6 +115,61 @@ Item {
             })
             verify(obj !== null, "Precipitation failed to create")
             resizeAll(obj)
+        }
+
+        // Precipitation on the shared clock: the clock moves, nothing breaks.
+        function test_precipitation_clock() {
+            var obj = createTemporaryObject(precipComp, scene, {
+                width: 1920, height: 1080,
+                clock: 0.1,
+                rain: 1,
+                snow: 1,
+                windX: 0.2
+            })
+            verify(obj !== null, "Precipitation (clock) failed to create")
+            var cs = [0.25, 0.5, 0.999, 0]
+            for (var i = 0; i < cs.length; i++) {
+                obj.clock = cs[i]
+                wait(10)
+                compare(obj.clock, cs[i])
+            }
+            obj.rain = 0
+            obj.snow = 0
+            obj.clock = 0.3
+            wait(10)
+            resizeAll(obj)
+        }
+
+        // Sheet geometry is finite, non-empty and loops a whole number of times per clock cycle.
+        function test_woodblock_precip_geometry() {
+            var sizes = [[1920, 1080], [3440, 1440], [1080, 1920], [1280, 800], [640, 360]]
+            var slants = [-0.35, 0, 0.35]
+            for (var i = 0; i < sizes.length; i++) {
+                var at = " at " + sizes[i]
+                for (var s = 0; s < slants.length; s++) {
+                    for (var a = 0; a < 6; a++) {   // 3 rain sheets, then 3 snow sheets
+                        var sh = a < 3 ? WoodPrecip.rainSheet(sizes[i][0], sizes[i][1], a, slants[s])
+                                       : WoodPrecip.snowSheet(sizes[i][0], sizes[i][1], a - 3, slants[s])
+                        verify(sh.d.length > 0, "sheet path" + at)
+                        verify(!/NaN|undefined/.test(sh.d), "finite sheet path" + at)
+                        verify(isFinite(sh.period) && sh.period > 0, "period" + at)
+                        verify(sh.k >= 1 && sh.k === Math.round(sh.k), "whole periods per cycle" + at)
+                    }
+                }
+            }
+        }
+
+        // Life gets the clock and the integer ticks from Scene.
+        function test_life() {
+            var sizes = [[1920, 1080], [3440, 1440]]
+            for (var i = 0; i < sizes.length; i++) {
+                var obj = createTemporaryObject(lifeComp, scene, {
+                    width: sizes[i][0], height: sizes[i][1],
+                    month: 3, light: 0.2, windX: 0.2, precip: 0,
+                    clock: 0.5, ticks: 15000
+                })
+                verify(obj !== null, "Life failed to create at " + sizes[i])
+            }
         }
 
         function test_paper() {

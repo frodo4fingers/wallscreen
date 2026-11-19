@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Shapes
 
 // Clouds (ukiyo-e kasumi): flat mist bands, ink outline, two depth layers.
-// Drift via NumberAnimation only. Drift is always toward +x; |windX| only sets speed.
+// Position and bob are pure functions of the Scene clock (no running animations, so Qt Quick
+// does not redraw at display rate). Drift is always toward +x; |windX| only sets speed.
 Item {
     id: root
 
@@ -11,6 +12,7 @@ Item {
     property real windX: 0.1        // -1..1 (magnitude = speed only)
     property color tint: "#ffffff"
     property bool running: true
+    property real clock: 0          // 0..1 every 20 min, from Scene
 
     readonly property real u: Math.min(width, height)
     readonly property real lineW: Math.max(1.5, u * 0.0018)
@@ -19,12 +21,17 @@ Item {
     // near layer, fraction of screen width per second: ~68 s crossing at low wind, ~33 s at full wind
     readonly property real speed: 0.013 + 0.017 * Math.min(1, windAbs)
 
+    // Distance travelled by the near layer, in screen widths. Integrating speed per tick means a
+    // wind change alters the pace without making the bands jump.
+    property real drift: 0
+    onClockChanged: drift += speed * 0.04      // one tick is 40 ms
+
     // mixed toward dark grey by darkness
     property color baseColor: Qt.rgba(
         tint.r * (1 - darkness) + 0.27 * darkness,
         tint.g * (1 - darkness) + 0.29 * darkness,
         tint.b * (1 - darkness) + 0.33 * darkness, 1)
-    Behavior on baseColor { ColorAnimation { duration: 10000 } }
+    // no colour fade: tint already steps in amounts too small to see, and a fade would render at display rate
 
     // deterministic pseudo-random in [0,1)
     function rnd(seed, k) {
@@ -93,16 +100,19 @@ Item {
                     // low-discrepancy threshold: cover decides how many bands exist
                     readonly property real th: (index * 0.618034 + (lyr.near ? 0.3 : 0.0)) % 1.0
                     readonly property real vis: Math.max(0, Math.min(1, (root.cover * 1.15 - th) / 0.15))
-                    readonly property real v: root.speed * lyr.width * lyr.speedScale
-                                              * (0.8 + 0.4 * root.rnd(seed, 4))     // px/s
-                    readonly property int dur: Math.round((lyr.width + cw) / v * 1000)
-                    property int curDur: 1          // dur latched at each loop start: new speed, no jump
-                    property real bob: -1           // -1..1 (starts at the animation start value), vertical breathing
+                    readonly property real bandFactor: 0.8 + 0.4 * root.rnd(seed, 4)
                     readonly property int bobPeriod: 8000 + Math.round(6000 * root.rnd(seed, 8))
+                    // whole bobs per clock cycle (1200 s) so the wrap does not jump
+                    readonly property int mb: Math.round(1200 / (bobPeriod / 1000))
+                    // hidden bands read no clock or drift, so they are never re-evaluated
+                    readonly property real c: visible ? root.clock : 0
+                    readonly property real bob: Math.sin(2 * Math.PI * (c * mb + root.rnd(seed, 9)))
 
                     width: cw
                     height: ch
-                    x: x0
+                    // start spread out; positive modulo wraps the band from the right edge to -cw
+                    x: visible ? (x0 + cw + root.drift * lyr.width * lyr.speedScale * bandFactor) % (lyr.width + cw) - cw
+                               : x0
                     // stratified vertical slot per band, so bands do not pile up
                     y: root.height * (lyr.yTop + lyr.yRange * (index + 0.15 + 0.7 * root.rnd(seed, 5)) / lyr.count
                                       + 0.004 * bob)
@@ -117,43 +127,6 @@ Item {
                         joinStyle: ShapePath.RoundJoin
                         fillColor: lyr.fill
                         PathSvg { path: root.bandPath(band.cw, band.ch, band.n, band.seed) }
-                    }
-
-                    // paused only while running, so setPaused() never hits a stopped animation
-                    SequentialAnimation {
-                        running: true
-                        paused: running && !root.running
-                        ScriptAction { script: band.curDur = band.dur }
-                        NumberAnimation {   // first pass from the spread-out start position
-                            target: band; property: "x"
-                            from: band.x0; to: lyr.width
-                            duration: Math.max(1, Math.round(band.curDur * (lyr.width - band.x0) / (lyr.width + band.cw)))
-                        }
-                        SequentialAnimation {
-                            loops: Animation.Infinite
-                            ScriptAction { script: band.curDur = band.dur }
-                            NumberAnimation {
-                                target: band; property: "x"
-                                from: -band.cw; to: lyr.width
-                                duration: band.curDur
-                            }
-                        }
-                    }
-
-                    // vertical bob: random start delay = random phase, SineCurve is one full cycle
-                    SequentialAnimation {
-                        running: true
-                        paused: running && !root.running
-                        PauseAnimation { duration: Math.round(band.bobPeriod * root.rnd(band.seed, 9)) }
-                        SequentialAnimation {
-                            loops: Animation.Infinite
-                            NumberAnimation {
-                                target: band; property: "bob"
-                                from: -1; to: 1
-                                duration: band.bobPeriod
-                                easing.type: Easing.SineCurve
-                            }
-                        }
                     }
                 }
             }

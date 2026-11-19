@@ -16,17 +16,35 @@ Item {
     readonly property date now: world?.now ?? new Date()
     readonly property real latitude: world?.latitude ?? 0
 
-    readonly property var sky: Palette.skyColors(elevation, clouds)
+    // Elevation, clouds and light glide continuously; colours follow them in small steps, so
+    // the shapes recolour every minute or two instead of every frame.
+    readonly property real tone: Math.round(elevation * 200) / 200
+    readonly property real overcast: Math.round(clouds * 50) / 50
+    readonly property real lightTone: Math.round(light * 100) / 100
+    readonly property var sky: Palette.skyColors(tone, overcast)
+
+    // One slow clock, 0..1 every 20 min, drives drift, twinkle and sway. A timer ticks it 25
+    // times a second instead of animations at display rate, which would redraw every vsync.
+    // 30000 ticks make the 20 min, so it wraps exactly; anything that repeats a whole number
+    // of times per cycle wraps without a jump.
+    property int ticks: 0
+    readonly property real clock: ticks / 30000
+    Timer {
+        interval: 40
+        repeat: true
+        running: scene.running
+        onTriggered: scene.ticks = (scene.ticks + 1) % 30000
+    }
 
     // night indigo-grey to cream-white by light, plus a sakura/peach cast in the golden window at the horizon
     readonly property color cloudTint: {
-        const lit = Qt.tint("#3a4170", Qt.rgba(0.984, 0.965, 0.914, light));   // #fbf6e9
-        const warm = Math.max(0, 1 - Math.abs(elevation - 0.03) / 0.12);
+        const lit = Qt.tint("#3a4170", Qt.rgba(0.984, 0.965, 0.914, lightTone));   // #fbf6e9
+        const warm = Math.max(0, 1 - Math.abs(tone - 0.03) / 0.12);
         return Qt.tint(lit, Qt.rgba(0.965, 0.706, 0.604, warm));   // #f6b49a
     }
 
     // creamy mist by day (cream tinted by the sky), #5a6478 at night
-    readonly property color fogColor: Qt.tint("#5a6478", Qt.alpha(Qt.tint("#efe6cf", Qt.alpha(sky.bottom, 0.25)), light))
+    readonly property color fogColor: Qt.tint("#5a6478", Qt.alpha(Qt.tint("#efe6cf", Qt.alpha(sky.bottom, 0.25)), lightTone))
 
     Sky {
         anchors.fill: parent
@@ -43,6 +61,7 @@ Item {
         moonVisible: scene.world?.moonVisible ?? false
         moonPhase: scene.world?.moonPhase ?? 0
         starOpacity: (scene.world?.starOpacity ?? 0) * (1 - scene.clouds)
+        clock: scene.clock
         running: scene.running
     }
 
@@ -52,13 +71,15 @@ Item {
         darkness: Math.max(scene.storm, (scene.world?.rain ?? 0) * 0.5)
         windX: scene.world?.windX ?? 0
         tint: scene.cloudTint
+        clock: scene.clock
         running: scene.running
     }
 
     Landscape {
         anchors.fill: parent
         colors: Palette.season(scene.now, scene.latitude)
-        light: scene.light
+        light: scene.lightTone
+        clock: scene.clock
         snowCap: Palette.snowCap(scene.now, scene.latitude)
         ink: Palette.INK
         windX: scene.world?.windX ?? 0
@@ -68,7 +89,9 @@ Item {
     Life {
         anchors.fill: parent
         month: scene.world?.month ?? 0
-        light: scene.light
+        light: scene.lightTone
+        clock: scene.clock
+        ticks: scene.ticks
         windX: scene.world?.windX ?? 0
         precip: Math.max(scene.world?.rain ?? 0, scene.world?.snow ?? 0)
         running: scene.running
@@ -92,6 +115,7 @@ Item {
         anchors.fill: parent
         rain: scene.world?.rain ?? 0
         snow: scene.world?.snow ?? 0
+        clock: scene.clock
         windX: scene.world?.windX ?? 0
         running: scene.running
     }

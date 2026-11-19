@@ -1,6 +1,6 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
-import QtQuick.Particles
 
 // Sky (ukiyo-e): flat gradient, ink-pressed top bokashi band, warm horizon bokashi strip,
 // flat sun, flat moon with phase, sparse crisp stars. No Timers, no per-frame JS, no blur.
@@ -21,6 +21,7 @@ Item {
     property real moonPhase: 0.5      // 0 new, 0.5 full
     property real starOpacity: 0
     property bool running: true
+    property real clock: 0            // 0..1 every 20 min, from Scene
 
     readonly property real unit: Math.min(width, height)
     readonly property real horizonY: 0.62
@@ -29,24 +30,12 @@ Item {
 
     clip: true
 
-    // ---- slow crossfades (20 s) ----
-    property color _top: topColor
-    property color _bottom: bottomColor
-    property color _band: bandColor
-    property color _horizon: horizonColor
-    property real _hAlpha: horizonAlpha
-    Behavior on _top { ColorAnimation { duration: 20000 } }
-    Behavior on _bottom { ColorAnimation { duration: 20000 } }
-    Behavior on _band { ColorAnimation { duration: 20000 } }
-    Behavior on _horizon { ColorAnimation { duration: 20000 } }
-    Behavior on _hAlpha { NumberAnimation { duration: 20000 } }
-
     // base: flat vertical gradient
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
-            GradientStop { position: 0.0; color: root._top }
-            GradientStop { position: 1.0; color: root._bottom }
+            GradientStop { position: 0.0; color: root.topColor }
+            GradientStop { position: 1.0; color: root.bottomColor }
         }
     }
 
@@ -55,9 +44,9 @@ Item {
         width: root.width
         height: root.height * 0.22
         gradient: Gradient {
-            GradientStop { position: 0.00; color: root._band }
-            GradientStop { position: 0.35; color: root._band }
-            GradientStop { position: 1.00; color: Qt.rgba(root._band.r, root._band.g, root._band.b, 0) }
+            GradientStop { position: 0.00; color: root.bandColor }
+            GradientStop { position: 0.35; color: root.bandColor }
+            GradientStop { position: 1.00; color: Qt.rgba(root.bandColor.r, root.bandColor.g, root.bandColor.b, 0) }
         }
     }
 
@@ -67,9 +56,9 @@ Item {
         height: root.height * 0.14
         y: root.height * (root.horizonY - 0.14)
         gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.rgba(root._horizon.r, root._horizon.g, root._horizon.b, 0) }
-            GradientStop { position: 0.5; color: Qt.rgba(root._horizon.r, root._horizon.g, root._horizon.b, root._hAlpha) }
-            GradientStop { position: 1.0; color: Qt.rgba(root._horizon.r, root._horizon.g, root._horizon.b, 0) }
+            GradientStop { position: 0.0; color: Qt.rgba(root.horizonColor.r, root.horizonColor.g, root.horizonColor.b, 0) }
+            GradientStop { position: 0.5; color: Qt.rgba(root.horizonColor.r, root.horizonColor.g, root.horizonColor.b, root.horizonAlpha) }
+            GradientStop { position: 1.0; color: Qt.rgba(root.horizonColor.r, root.horizonColor.g, root.horizonColor.b, 0) }
         }
     }
 
@@ -83,50 +72,33 @@ Item {
         // ~90 stars at 1920x1080, clamped 60..110
         readonly property int count: Math.max(60, Math.min(110,
             Math.round(root.width * root.height * 0.6 * 7.2e-5)))
-        readonly property int life: 9000
 
-        ParticleSystem {
-            id: sys
-            running: stars.visible
-            paused: !root.running
+        // the clock only reaches the stars while they are visible, so hidden stars cost nothing
+        readonly property real c: stars.visible ? root.clock : 0
+
+        // deterministic hash in 0..1, so the sky looks the same on every start
+        function rnd(seed, k) {
+            const s = Math.sin(seed * 127.1 + k * 311.7) * 43758.5453;
+            return s - Math.floor(s);
         }
-        ItemParticle {
-            system: sys
-            // outer item carries the particle life fade, inner dot twinkles (2-5 s, random phase)
-            delegate: Item {
+
+        Repeater {
+            model: stars.count
+            // twinkle 1 -> 0.15 -> 1 every 2-5 s; a whole number of cycles per clock cycle
+            // (1200 s) keeps the wrap seamless
+            delegate: Rectangle {
+                required property int index
+                readonly property int m: Math.round(1200 / (2 + 3 * stars.rnd(index, 3)))
+                readonly property real phase: stars.rnd(index, 4)
+
+                x: stars.rnd(index, 1) * root.width
+                y: stars.rnd(index, 2) * root.height * 0.58
                 width: Math.max(2, root.unit * 0.004)
                 height: width
-                Rectangle {
-                    anchors.fill: parent
-                    radius: width / 2
-                    color: "#fdf6dc"
-                    SequentialAnimation on opacity {
-                        running: true
-                        paused: running && !root.running
-                        PauseAnimation { duration: Math.round(Math.random() * 4000) }
-                        SequentialAnimation {
-                            loops: Animation.Infinite
-                            NumberAnimation {
-                                from: 1; to: 0.15
-                                duration: 2000 + Math.round(Math.random() * 3000)
-                                easing.type: Easing.SineCurve
-                            }
-                        }
-                    }
-                }
+                radius: width / 2
+                color: "#fdf6dc"
+                opacity: 0.575 + 0.425 * Math.cos(2 * Math.PI * (stars.c * m + phase))
             }
-        }
-        Emitter {
-            system: sys
-            x: 0
-            y: 0
-            width: root.width
-            height: root.height * 0.58
-            lifeSpan: stars.life
-            lifeSpanVariation: 4000
-            emitRate: stars.count / (stars.life / 1000)
-            maximumEmitted: Math.round(stars.count * 1.3)
-            startTime: stars.life            // pre-populate so stars are not empty at start
         }
     }
 
@@ -176,7 +148,7 @@ Item {
         Rectangle {   // dark side: band colour lifted slightly toward cream
             width: moon.r * 2; height: width; radius: moon.r
             x: -moon.r; y: -moon.r
-            color: Qt.tint(root._band, Qt.rgba(0.97, 0.94, 0.85, 0.14))
+            color: Qt.tint(root.bandColor, Qt.rgba(0.97, 0.94, 0.85, 0.14))
         }
 
         Shape {   // lit part (outer half arc + elliptical terminator)
