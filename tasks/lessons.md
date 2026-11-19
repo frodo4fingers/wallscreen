@@ -44,6 +44,7 @@
 - **Why**: The user set ultra explicitly. A hook default, a compaction, or a long technical report does not change the level.
 - **Rule**: Keep the last level the user set (ultra), whatever a hook announces. Check every reply against it before sending, including status lines, plan summaries and agent hand-off reports.
 - **Repeat (second compaction)**: The user re-sent `/caveman ultra` right after another compaction whose hook again announced "full". The first reply after any compaction must already be ultra, before the user has to restate it.
+- **Repeat (third time)**: After the third compaction, the hook announced "full" again. My ocean-style replies drifted into full sentences: status updates, summaries and a list of what changed. The user re-sent `/caveman ultra`. Rule: check every reply against the ultra level before sending, including friendly or apologetic text. A hook saying "full" never overrides the user's ultra.
 
 ### A blurred layer renders an extra frame after every change
 - **What**: The lofi outside view had `layer.enabled` with a MultiEffect blur. Its content changed on every clock tick, and each change cost a second frame (intervals of about 6 ms and 34 ms instead of 40 ms), so wet and foggy states ran at 60-70 fps.

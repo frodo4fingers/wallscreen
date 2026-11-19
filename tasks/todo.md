@@ -341,4 +341,4 @@ fixed sunny day and very subtle motion.
 - [x] Registered in `styles.js`; smoke tests `test_ocean_scene` and `test_ocean_scene_null_world`
 - [x] Installed and live; GPU busy 16 % while animating against 9 % with the scene paused
 - [x] User saw no motion: added four small clouds cut from the painting that drift over the sea with their shadows; glints and rays made stronger. GPU busy 11 %
-- [ ] User looks at it and runs the tests
+- [x] User looks at it and runs the tests (all 18 passed)
