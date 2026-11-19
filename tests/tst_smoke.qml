@@ -10,6 +10,7 @@ import "../package/contents/ui/styles/lofi" as Lofi
 import "../package/contents/ui/styles/lofi/geometry.js" as LofiGeo
 import "../package/contents/ui/styles/lofi/palette.js" as LofiPal
 import "../package/contents/ui/styles/ocean" as Ocean
+import "../package/contents/ui/styles/pixel" as Pixel
 
 Item {
     id: scene
@@ -25,6 +26,7 @@ Item {
     Component { id: weatherComp; Weather {} }
     Component { id: lofiComp; Lofi.Scene {} }
     Component { id: oceanComp; Ocean.Scene {} }
+    Component { id: pixelComp; Pixel.Scene {} }
 
     QtObject {
         id: stubWorld
@@ -244,6 +246,25 @@ Item {
             var obj = createTemporaryObject(oceanComp, scene, { width: 1920, height: 1080 })
             verify(obj !== null, "Ocean scene (null world) failed to create")
             compare(obj.running, false)
+        }
+
+        function test_pixel_scene() {
+            var obj = createTemporaryObject(pixelComp, scene, {
+                width: 1920, height: 1080,
+                world: stubWorld
+            })
+            verify(obj !== null, "Pixel scene failed to create")
+            compare(obj.k, 5)
+            resizeAll(obj)
+            compare(obj.k, 6)
+        }
+
+        function test_pixel_scene_null_world() {
+            var obj = createTemporaryObject(pixelComp, scene, { width: 3440, height: 1440 })
+            verify(obj !== null, "Pixel scene (null world) failed to create")
+            compare(obj.running, false)
+            compare(obj.k, 6)
+            verify(obj.cat.sleep === false || obj.cat.sleep === true)
         }
 
         // Weather only checked for creation. valid stays false until the network

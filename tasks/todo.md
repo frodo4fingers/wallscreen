@@ -342,3 +342,16 @@ fixed sunny day and very subtle motion.
 - [x] Installed and live; GPU busy 16 % while animating against 9 % with the scene paused
 - [x] User saw no motion: added four small clouds cut from the painting that drift over the sea with their shadows; glints and rays made stronger. GPU busy 11 %
 - [x] User looks at it and runs the tests (all 18 passed)
+
+# v11 Fifth style: "Pixel Loft"
+Cozy modern loft in pixel art: a big window onto a large skyline, with the time of day and the
+live weather outside. Weather comes from the existing Open-Meteo source (15 min poll).
+- [x] `tools/pixel_loft.py` draws the room (day and night lighting), the sleeping and walking cat, and writes `art.js`
+- [x] `styles/pixel/draw.js`: sky bands, sun, moon phase, stars, clouds, skyline with lit windows, fog, rain, snow, and the cat's schedule
+- [x] `tools/pixel_preview.js` renders the window with the real draw.js for still previews
+- [x] `styles/pixel/Scene.qml`: 576x240 art in one layer, scaled by a whole number with nearest-neighbour sampling; 12.5 Hz clock
+- [x] Cat walks along the bench about every 10 min (user request)
+- [x] Desk and PC replaced by a three-tier plant shelf with the mug and a mushroom lamp (user request)
+- [x] Registered in `styles.js`; smoke tests `test_pixel_scene` and `test_pixel_scene_null_world`
+- [x] Installed and live; GPU busy 12 % (clear and rainy night preview)
+- [ ] User looks at it and runs the tests
