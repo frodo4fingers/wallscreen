@@ -61,7 +61,7 @@ The wallpaper runs only on Plasma, so it does not work on GNOME, macOS or Window
 
 ## Resource use
 
-Measured on a Ryzen 7 PRO 5850U with its integrated Radeon graphics, on one 3440x1440 screen
+Measured with `tools/bench.sh` on a Ryzen 7 PRO 5850U with its integrated Radeon graphics, on one 3440x1440 screen
 at 100 Hz, Plasma 6.6 on Wayland, during light rain. Each value is a 20-second average taken
 after the style had settled for 35 seconds.
 
@@ -78,8 +78,7 @@ after the style had settled for 35 seconds.
 ```
 
 CPU is the share of one core. GPU busy covers the whole GPU, including everything else on
-screen, so it moves by several points between runs and depends on what else is going on; the
-paused row shows that range. RAM is the whole plasmashell process with its panels and widgets,
+screen, so it varies by several points between runs; the paused row shows that range. RAM is the whole plasmashell process with its panels and widgets,
 and the styles differ from each other by about 50 MiB. Every style draws on its own slow clock
 (25 frames a second for Woodblock and Lofi Window, 12.5 for Sunlit Ocean and Pixel Loft)
 instead of at the display's refresh rate, and stops drawing while paused.
@@ -151,7 +150,12 @@ tools/
   pixel_loft.py              generates the Pixel Loft room and cat sprites (Pillow, NumPy)
   pixel_preview.js           renders the Pixel Loft window view with Node, for quick checks
   screenshots.qml            renders the README screenshots offscreen
+  bench.sh                   measures CPU, GPU and memory per style on the live desktop
 ```
+
+[AGENTS.md](AGENTS.md) collects the rules for contributors, whether people or coding agents.
+The main one is that every style moves on a slow clock, and it lists the checks to run before
+committing.
 
 Run the tests from the repository root:
 
