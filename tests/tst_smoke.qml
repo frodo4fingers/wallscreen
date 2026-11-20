@@ -11,6 +11,7 @@ import "../package/contents/ui/styles/lofi" as Lofi
 import "../package/contents/ui/styles/lofi/geometry.js" as LofiGeo
 import "../package/contents/ui/styles/lofi/palette.js" as LofiPal
 import "../package/contents/ui/styles/ocean" as Ocean
+import "../package/contents/ui/styles/forest" as Forest
 import "../package/contents/ui/styles/pixel" as Pixel
 
 Item {
@@ -28,6 +29,7 @@ Item {
     Component { id: weatherComp; Weather {} }
     Component { id: lofiComp; Lofi.Scene {} }
     Component { id: oceanComp; Ocean.Scene {} }
+    Component { id: forestComp; Forest.Scene {} }
     Component { id: pixelComp; Pixel.Scene {} }
 
     QtObject {
@@ -302,6 +304,24 @@ Item {
         function test_ocean_scene_null_world() {
             var obj = createTemporaryObject(oceanComp, scene, { width: 1920, height: 1080 })
             verify(obj !== null, "Ocean scene (null world) failed to create")
+            compare(obj.running, false)
+        }
+
+        function test_forest_scene() {
+            var obj = createTemporaryObject(forestComp, scene, {
+                width: 1920, height: 1080,
+                world: stubWorld
+            })
+            verify(obj !== null, "Forest scene failed to create")
+            resizeAll(obj)
+            verify(obj.k > 0, "art scale")
+            compare(obj.tint(0.8).a, 0)
+            verify(obj.tint(-0.5).a > 0.3, "night tint")
+        }
+
+        function test_forest_scene_null_world() {
+            var obj = createTemporaryObject(forestComp, scene, { width: 1920, height: 1080 })
+            verify(obj !== null, "Forest scene (null world) failed to create")
             compare(obj.running, false)
         }
 

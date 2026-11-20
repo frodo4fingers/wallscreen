@@ -13,7 +13,7 @@ every vsync, which is 100 to 144 times a second on many screens. Each style ther
 its motion from one slow clock.
 
 - Each style has one `Timer` clock in its `Scene.qml`: 40 ms (25 Hz) for Woodblock and Lofi
-  Window, 80 ms (12.5 Hz) for Sunlit Ocean and Pixel Loft. Copy that pattern for a new style.
+  Window, 80 ms (12.5 Hz) for Sunlit Ocean, Misty Forest and Pixel Loft. Copy that pattern for a new style.
   The timer runs only while `world.running` is true, so a paused wallpaper draws nothing.
 - Motion is a pure function of the clock. Woodblock and Lofi use `ticks` from 0 to 29999 and
   `clock = ticks / 30000`, one cycle every 20 minutes. Anything periodic repeats a whole number
@@ -74,6 +74,9 @@ edit.
 The Pixel Loft room and cat sprites come from `tools/pixel_loft.py` (Pillow and NumPy). Change
 the generator and run it rather than editing the PNGs by hand:
 `python3 tools/pixel_loft.py`. It writes the images and `art.js` into `styles/pixel/`.
+
+The Misty Forest front-tree cut-out, mist textures and glow come from `tools/misty_forest.py`
+in the same way. Run `python3 tools/misty_forest.py` to rebuild them from `styles/forest/forest.jpg`.
 
 ## Commits
 

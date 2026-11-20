@@ -2,7 +2,7 @@
 
 An animated wallpaper for KDE Plasma 6 that follows the time of day and the live weather where
 you are. The sun and moon cross the sky, and the clouds, rain, snow, fog and thunderstorms on
-screen match the weather outside. There are four styles.
+screen match the weather outside. There are five styles.
 
 The motion is slow and quiet on purpose, so it stays easy on the eyes all day. Animation stops
 on battery and while a maximized or fullscreen window covers the screen.
@@ -48,6 +48,17 @@ This style always shows the same sunny day, whatever the time or the weather.
 
 ![Sunlit Ocean](docs/screenshots/ocean-day.jpg)
 
+### Misty Forest (painting)
+
+A watercolour of a spruce forest in thick fog. Banks of mist drift slowly behind the dark
+trees in front, the valley fog thickens and thins about once a minute, and a pale light
+wanders behind the haze by day. The weather never changes here, but the time of day does:
+the scene turns warm at sunset and dark blue at night. The painting was made with Midjourney.
+
+![Misty Forest by day](docs/screenshots/forest-day.jpg)
+
+<img src="docs/screenshots/forest-dusk.jpg" width="49%" alt="Misty Forest at dusk"> <img src="docs/screenshots/forest-night.jpg" width="49%" alt="Misty Forest at night">
+
 ## Requirements
 
 - KDE Plasma 6 (developed on Plasma 6.6 with Qt 6.10, on Wayland)
@@ -73,6 +84,7 @@ after the style had settled for 35 seconds.
 | Woodblock    |             9 % |      5 % |     21 % |         473 MiB |
 | Lofi Window  |            19 % |      6 % |     22 % |         494 MiB |
 | Sunlit Ocean |             4 % |      6 % |     19 % |         522 MiB |
+| Misty Forest |             4 % |      4 % |      8 % |         429 MiB |
 | Pixel Loft   |            10 % |     11 % |     28 % |         483 MiB |
 +--------------+-----------------+----------+----------+-----------------+
 ```
@@ -80,7 +92,7 @@ after the style had settled for 35 seconds.
 CPU is the share of one core. GPU busy covers the whole GPU, including everything else on
 screen, so it varies by several points between runs; the paused row shows that range. RAM is the whole plasmashell process with its panels and widgets,
 and the styles differ from each other by about 50 MiB. Every style draws on its own slow clock
-(25 frames a second for Woodblock and Lofi Window, 12.5 for Sunlit Ocean and Pixel Loft)
+(25 frames a second for Woodblock and Lofi Window, 12.5 for the other three)
 instead of at the display's refresh rate, and stops drawing while paused.
 
 ## Installation
@@ -113,7 +125,7 @@ kpackagetool6 -t Plasma/Wallpaper -r de.wallscreen.weather
 
 | Setting | What it does |
 | --- | --- |
-| Style | Pixel Loft, Woodblock, Lofi Window or Sunlit Ocean |
+| Style | Pixel Loft, Woodblock, Lofi Window, Sunlit Ocean or Misty Forest |
 | City | Where the weather comes from. The resolved place is shown below the field. |
 | Pause animation on battery | On by default |
 | Pause when a maximized or fullscreen window covers the screen | On by default |
@@ -148,6 +160,7 @@ package/                     the Plasma wallpaper package
 tests/                       Qt Quick Test suites
 tools/
   pixel_loft.py              generates the Pixel Loft room and cat sprites (Pillow, NumPy)
+  misty_forest.py            cuts the Misty Forest front trees and makes the mist (Pillow, NumPy)
   pixel_preview.js           renders the Pixel Loft window view with Node, for quick checks
   screenshots.qml            renders the README screenshots offscreen
   bench.sh                   measures CPU, GPU and memory per style on the live desktop

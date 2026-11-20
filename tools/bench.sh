@@ -9,7 +9,7 @@
 # Needs an amdgpu card (gpu_busy_percent in sysfs). The wallpaper visibly switches styles.
 set -u
 styles=("$@")
-[ ${#styles[@]} -gt 0 ] || styles=(woodblock lofi ocean pixel)
+[ ${#styles[@]} -gt 0 ] || styles=(woodblock lofi ocean forest pixel)
 
 qdbus=/usr/lib/qt6/bin/qdbus
 select="desktops().filter(d => d.screen >= 0 && d.wallpaperPlugin == 'de.wallscreen.weather')"

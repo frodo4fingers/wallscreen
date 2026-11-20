@@ -38,12 +38,15 @@ Item {
         ["rain", 14, 3],
         ["night", 22, 4]
     ]
-    readonly property var styles: ["woodblock", "lofi", "ocean", "pixel"]
+    readonly property var styles: ["woodblock", "lofi", "ocean", "forest", "pixel"]
 
     function statesFor(style) {
         // the ocean painting ignores time and weather, so one picture is enough
         if (style === "ocean")
             return states.slice(0, 1);
+        // the forest painting ignores weather and only follows the time of day, so it gets no rain
+        if (style === "forest")
+            return states.filter(st => st[0] !== "rain");
         // offscreen Qt Quick uses the software renderer, which cannot run lofi's blur shader
         // behind wet glass, so lofi shows a snowy day instead of rain
         if (style === "lofi")
